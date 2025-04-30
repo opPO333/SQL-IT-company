@@ -1194,8 +1194,20 @@ COMMIT;
 CREATE TABLE departments (
 	id SERIAL PRIMARY KEY,
 	name VARCHAR(50) UNIQUE NOT NULL,
-	head_id INTEGER REFERENCES employees(id) ON DELETE SET NULL -- ID of the 'leader' of department
+	head_id INTEGER REFERENCES employees(id) ON DELETE SET NULL
 );
+
+INSERT INTO departments (name, head_id) VALUES
+('HR Department', 1),
+('IT Department', 2),
+('Finance Department', 3),
+('Marketing Department', 4),
+('Sales Department', 5),
+('Legal Department', 6),
+('Customer Support', 7),
+('Operations Department', 8),
+('R&D Department', 9),
+('Administration', NULL);
 
 
 CREATE TABLE employee_departments_history (
@@ -1253,6 +1265,50 @@ CREATE TABLE teams (
 
 	CHECK(end_date IS NULL OR start_date <= end_date)
 );
+
+INSERT INTO teams (name, start_date, end_date, project_id) VALUES
+('Team Alpha', '2023-06-01', '2023-12-31', 1),
+('Team Beta', '2023-06-01', '2023-08-15', 1),
+('Team Gamma', '2024-01-01', NULL, 2),
+('Team Delta', '2023-04-20', '2023-10-20', 2),
+('Team Epsilon', '2023-05-10', '2024-05-10', 3),
+('Team Zeta', '2023-07-05', '2023-11-05', 3),
+('Team Eta', '2023-08-01', NULL, 4),
+('Team Theta', '2023-09-01', '2024-03-01', 4),
+('Team Iota', '2024-01-15', '2024-12-31', 5),
+('Team Kappa', '2023-02-01', '2023-07-01', 5),
+('Team Lambda', '2023-08-15', '2024-03-15', 6),
+('Team Mu', '2023-10-01', '2024-04-01', 6),
+('Team Nu', '2024-04-01', NULL, 7),
+('Team Xi', '2023-01-10', '2023-12-10', 7),
+('Team Omicron', '2024-03-01', '2025-03-01', 8),
+('Team Pi', '2023-05-01', NULL, 8),
+('Team Rho', '2024-02-10', '2024-12-10', 9),
+('Team Sigma', '2023-11-01', '2024-05-01', 9),
+('Team Tau', '2023-12-10', '2024-06-10', 10),
+('Team Upsilon', '2024-01-20', NULL, 10),
+('Team Phi', '2024-01-20', '2024-12-20', 11),
+('Team Omega', '2023-05-25', NULL, 11),
+('Team Zeta 2', '2023-06-01', '2023-11-01', 12),
+('Team Hyperion', '2023-07-20', '2024-01-20', 12),
+('Team Astra', '2023-08-15', NULL, 13),
+('Team Equinox', '2023-09-01', '2024-03-01', 13),
+('Team Phoenix', '2024-01-05', '2024-11-05', 14),
+('Team Orion', '2023-10-10', '2024-03-10', 14),
+('Team Eclipse', '2024-02-15', '2024-07-15', 15),
+('Team Andromeda', '2023-11-15', '2024-06-15', 15),
+('Team Nebula', '2023-07-01', NULL, 16),
+('Team Comet', '2024-03-01', '2024-09-01', 16),
+('Team Horizon', '2023-06-20', '2024-02-20', 17),
+('Team Nova', '2023-12-01', NULL, 17),
+('Team Titan', '2024-01-10', '2024-08-10', 18),
+('Team Solstice', '2023-08-01', '2024-02-01', 18),
+('Team Polaris', '2023-09-15', NULL, 19),
+('Team Quantum', '2024-02-01', '2024-09-01', 19),
+('Team Voyager', '2024-03-10', '2025-03-10', 20),
+('Team Apollo', '2023-11-05', '2024-07-05', 20),
+('Team Nebula 2', '2023-07-01', '2023-12-01', 21),
+('Team Horizon 2', '2023-08-01', NULL, 21);
 
 
 CREATE TABLE employee_teams_history (
