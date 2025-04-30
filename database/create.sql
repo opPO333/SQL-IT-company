@@ -27,6 +27,7 @@ CREATE TABLE employees (
 	
 	CHECK(gender IN ('M', 'F')),
 	CHECK(birth_date <= CURRENT_DATE),
+    CHECK(CURRENT_DATE - INTERVAL '18 years'>= birth_date),
 	CHECK(phone IS NOT NULL OR email IS NOT NULL),
 	CHECK(passport IS NOT NULL OR pesel IS NOT NULL)
 );
@@ -123,7 +124,7 @@ CREATE TABLE schedule_exceptions (
 );
 
 
---Should be some 'manager' position that should approve such things
+--Should be some 'mnger' position that should approve such things
 CREATE TABLE vacations (
 	id SERIAL PRIMARY KEY,
 	employee_id INTEGER REFERENCES employees(id) NOT NULL,
@@ -157,24 +158,37 @@ CREATE TABLE tasks (
 	project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
 	team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
 	status VARCHAR(30) DEFAULT 'backlog' NOT NULL,
-	priority VARCHAR(30) NOT NULL,
+	priority INTEGER NOT NULL,
 	added_date DATE NOT NULL,
 	solved_date DATE,
 	
 	CHECK (solved_date IS NULL OR added_date <= solved_date)
 );
 
+CREATE TYPE equipment_type AS ENUM (
+    'laptop', 
+    'monitor', 
+    'phone', 
+    'router', 
+    'tablet'
+);
+
+CREATE TYPE equipment_status AS ENUM (
+    'in_stock',
+    'assigned',
+    'broken',
+    'under_repair'
+);
+
 
 CREATE TABLE equipment (
 	id SERIAL PRIMARY KEY,
 	name VARCHAR(100) NOT NULL,
-	type VARCHAR(30) NOT NULL,
+	type equipment_type NOT NULL,
 	serial_number VARCHAR(50) UNIQUE,
-	status VARCHAR(30) DEFAULT 'in_stock' NOT NULL,
+	status equipment_status DEFAULT 'in_stock' NOT NULL,
 	assigned_to INTEGER REFERENCES employees(id) ON DELETE SET NULL,
-	
-	CHECK (type IN ('laptop', 'monitor', 'phone', 'router', 'tablet')),
-	CHECK (status IN ('in_stock', 'assigned', 'broken', 'under_repair'))
+    price INTEGER
 );
 
 
