@@ -182,4 +182,7 @@ CREATE TABLE equipment (
 	serial_number VARCHAR(50) UNIQUE,
 	status VARCHAR(30) DEFAULT 'in_stock' NOT NULL,
 	assigned_to INTEGER REFERENCES employees(id) ON DELETE SET NULL
+	
+	CHECK (type IN ('laptop', 'monitor', 'phone', 'router', 'tablet')),
+	CHECK (status IN ('in_stock', 'assigned', 'broken', 'under_repair'))
 );
