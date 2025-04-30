@@ -1416,6 +1416,7 @@ CREATE TABLE employee_positions_history (
 	CHECK(end_date IS NULL OR start_date <= end_date)
 );
 
+
 BEGIN;
 INSERT INTO employee_positions_history (employee_id, position, start_date, end_date) VALUES
                                                                                          (1, 'Junior Backend Developer', '2025-10-01', NULL),
