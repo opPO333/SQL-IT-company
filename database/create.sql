@@ -11,33 +11,6 @@ CREATE TABLE addresses (
 );
 
 
-CREATE TABLE departments (
-	id SERIAL PRIMARY KEY,
-	name VARCHAR(50) UNIQUE NOT NULL,
-	--- ID of the 'leader' of department
-	head_id INTEGER NOT NULL
-);
-
-CREATE TABLE projects (
-	id SERIAL PRIMARY KEY,
-	name VARCHAR(30) UNIQUE NOT NULL,
-	start_date DATE NOT NULL,
-	end_date DATE,
-	company VARCHAR(30) NOT NULL,
-	
-	CHECK (end_date IS NULL OR start_date <= end_date)
-);
-
-CREATE TABLE teams (
-	id SERIAL PRIMARY KEY,
-	name VARCHAR(50) UNIQUE NOT NULL,
-	--- Maybe add the time from -> to this team was exist
-	
-	project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
-	lead_id INTEGER
-);
-
-
 CREATE TABLE employees (
 	id SERIAL PRIMARY KEY,
 	first_name VARCHAR(30) NOT NULL,
@@ -48,30 +21,56 @@ CREATE TABLE employees (
 	email VARCHAR(100) UNIQUE,
 	passport VARCHAR(20) UNIQUE,
 	pesel CHAR(11) UNIQUE,
-	address_id INTEGER REFERENCES addresses(id) ON DELETE RESTRICT,
-	correspondence_address_id INTEGER REFERENCES addresses(id) ON DELETE RESTRICT,
+	address_id INTEGER REFERENCES addresses(id) ON DELETE SET NULL,
+	correspondence_address_id INTEGER REFERENCES addresses(id) ON DELETE SET NULL,
 	birth_date DATE,
-	departament_id INTEGER NOT NULL,
-	team_id INTEGER REFERENCES teams(id),
 	
-
 	CHECK(gender IN ('M', 'F')),
 	CHECK(birth_date <= CURRENT_DATE),
 	CHECK(phone IS NOT NULL OR email IS NOT NULL),
 	CHECK(passport IS NOT NULL OR pesel IS NOT NULL)
 );
 
-ALTER TABLE departments
-ADD CONSTRAINT departments_ref_key
-FOREIGN KEY (head_id) REFERENCES employees(id) ON DELETE RESTRICT;
 
-ALTER TABLE teams
-ADD CONSTRAINT teams_ref_key
-FOREIGN KEY (lead_id) REFERENCES employees(id) ON DELETE SET NULL;
+CREATE TABLE departments (
+	id SERIAL PRIMARY KEY,
+	name VARCHAR(50) UNIQUE NOT NULL,
+	head_id INTEGER REFERENCES employees(id) ON DELETE SET NULL -- ID of the 'leader' of department
+);
 
-ALTER TABLE employees
-ADD CONSTRAINT employees_ref_key
-FOREIGN KEY (departament_id) REFERENCES departments(id) ON DELETE RESTRICT;
+
+CREATE TABLE employee_departments_history (
+	id SERIAL PRIMARY KEY,
+	employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE NOT NULL,
+	department_id INTEGER REFERENCES departments(id) ON DELETE CASCADE NOT NULL,
+	start_date DATE NOT NULL,
+	end_date DATE,
+	
+	CHECK(end_date IS NULL OR start_date <= end_date)
+);
+
+
+CREATE TABLE projects (
+	id SERIAL PRIMARY KEY,
+	title VARCHAR(50) UNIQUE NOT NULL,
+	description VARCHAR(255),
+	start_date DATE NOT NULL,
+	end_date DATE,
+	company VARCHAR(30) NOT NULL,
+	
+	CHECK (end_date IS NULL OR start_date <= end_date)
+);
+
+
+CREATE TABLE teams (
+	id SERIAL PRIMARY KEY,
+	name VARCHAR(50) UNIQUE NOT NULL,
+	start_date DATE NOT NULL,
+	end_date DATE,
+	project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+
+	CHECK(end_date IS NULL OR start_date <= end_date)
+);
 
 
 CREATE TABLE employee_teams_history (
@@ -87,16 +86,15 @@ CREATE TABLE employee_teams_history (
 
 CREATE TABLE positions (
 	position VARCHAR(30) PRIMARY KEY,
-	salary NUMERIC(10, 2) NOT NULL
+	salary_per_hour NUMERIC(10, 2) NOT NULL,
 
-	CHECK(salary > 0),
-	CHECK(position IN ('teamlead', 'ceo'))
+	CHECK(salary_per_hour >= 0)
 );
 
 
-CREATE TABLE employee_hours (
+CREATE TABLE employee_days (
 	id SERIAL PRIMARY KEY,
-	employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+	employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE NOT NULL,
 	date DATE NOT NULL,
 	is_paid BOOLEAN DEFAULT FALSE
 );
@@ -122,14 +120,6 @@ CREATE TABLE schedule_exceptions (
 	description VARCHAR(255),
 	
 	CHECK (type IN ('vacation', 'sick', 'day_off', 'absent', 'holiday'))
-);
-
-
-CREATE TABLE holidays (
-	id SERIAL PRIMARY KEY,
-	name VARCHAR(100) UNIQUE NOT NULL,
-	date DATE NOT NULL,
-	is_reccuring BOOLEAN DEFAULT TRUE
 );
 
 
@@ -181,8 +171,10 @@ CREATE TABLE equipment (
 	type VARCHAR(30) NOT NULL,
 	serial_number VARCHAR(50) UNIQUE,
 	status VARCHAR(30) DEFAULT 'in_stock' NOT NULL,
-	assigned_to INTEGER REFERENCES employees(id) ON DELETE SET NULL
+	assigned_to INTEGER REFERENCES employees(id) ON DELETE SET NULL,
 	
 	CHECK (type IN ('laptop', 'monitor', 'phone', 'router', 'tablet')),
 	CHECK (status IN ('in_stock', 'assigned', 'broken', 'under_repair'))
 );
+
+
