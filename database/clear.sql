@@ -1,3 +1,6 @@
+DROP TYPE IF EXISTS equipment_type CASCADE;
+DROP TYPE IF EXISTS equipment_status CASCADE;
+
 DROP TABLE IF EXISTS
     schedule_exceptions,
     position_schedules,
@@ -15,5 +18,3 @@ DROP TABLE IF EXISTS
     positions,
     addresses
 CASCADE;
-
-
