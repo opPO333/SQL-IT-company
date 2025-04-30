@@ -1220,6 +1220,29 @@ CREATE TABLE projects (
 	CHECK (end_date IS NULL OR start_date <= end_date)
 );
 
+INSERT INTO projects (title, description, start_date, end_date, company) VALUES
+('Project Alpha', 'Development of a new software platform for business analytics.', '2023-06-01', '2023-12-31', 'Tech Innovations Ltd'),
+('Project Beta', 'Improvement of the company website with a new design and features.', '2023-03-15', '2023-08-15', 'Creative Web Solutions'),
+('Project Gamma', 'Market research and new product development for retail clients.', '2024-01-01', NULL, 'Retail Marketing Group'),
+('Project Delta', 'Update and optimization of the customer support system.', '2023-04-20', '2023-10-20', 'SupportTech Inc'),
+('Project Epsilon', 'Mobile app development for fitness tracking.', '2023-05-10', '2024-05-10', 'HealthTech Enterprises'),
+('Project Zeta', 'Rebranding of the company and corporate identity redesign.', '2024-02-01', NULL, 'DesignPro Studio'),
+('Project Eta', 'Development of a cloud-based service for online storage.', '2023-07-05', '2024-06-05', 'CloudTech Solutions'),
+('Project Theta', 'Building an AI-powered recommendation system for online shops.', '2023-09-01', '2024-03-01', 'AI Innovators'),
+('Project Iota', 'Creation of a blockchain-based payment system.', '2024-01-15', '2024-12-31', 'Blockchain Systems LLC'),
+('Project Kappa', 'Upgrade of the company’s internal communication platform.', '2023-02-01', '2023-07-01', 'Corporate Solutions Inc'),
+('Project Lambda', 'Development of an automated inventory management system.', '2023-08-15', '2024-03-15', 'SupplyChain Ltd'),
+('Project Mu', 'Design and implementation of a new customer loyalty program.', '2023-10-01', '2024-04-01', 'Loyalty Partners'),
+('Project Nu', 'Building a virtual reality platform for educational purposes.', '2024-04-01', NULL, 'EdTech Innovations'),
+('Project Xi', 'New HR management software for large companies.', '2023-01-10', '2023-12-10', 'HR Solutions Inc'),
+('Project Omicron', 'Development of a cybersecurity solution for financial institutions.', '2024-03-01', '2025-03-01', 'SecureTech'),
+('Project Pi', 'Creating a multi-language content management system for blogs.', '2023-05-01', NULL, 'Content Creators'),
+('Project Rho', 'Building an IoT platform for smart homes.', '2024-02-10', '2024-12-10', 'SmartHome Systems'),
+('Project Sigma', 'Expansion of the company’s retail presence in new regions.', '2024-06-01', NULL, 'Retail Enterprises'),
+('Project Tau', 'Redesign of the company’s mobile app with a new user interface.', '2023-11-01', '2024-05-01', 'AppDesign Studios'),
+('Project Upsilon', 'Development of an e-commerce platform for small businesses.', '2023-12-10', '2024-06-10', 'E-commerce Solutions'),
+('Project Phi', 'Creating a software suite for financial portfolio management.', '2024-01-20', '2024-12-20', 'FinTech Enterprises');
+
 
 CREATE TABLE teams (
 	id SERIAL PRIMARY KEY,
@@ -1249,6 +1272,38 @@ CREATE TABLE positions (
 
 	CHECK(salary_per_hour >= 0)
 );
+
+INSERT INTO positions (position, salary_per_hour) VALUES
+('Junior Software Engineer', 30.00),
+('Middle Software Engineer', 50.00),
+('Senior Software Engineer', 70.00),
+('Junior Frontend Developer', 28.00),
+('Middle Frontend Developer', 45.00),
+('Senior Frontend Developer', 65.00),
+('Junior Backend Developer', 29.00),
+('Middle Backend Developer', 48.00),
+('Senior Backend Developer', 68.00),
+('Junior QA Engineer', 25.00),
+('Middle QA Engineer', 40.00),
+('Senior QA Engineer', 58.00),
+('Junior DevOps Engineer', 32.00),
+('Middle DevOps Engineer', 52.00),
+('Senior DevOps Engineer', 72.00),
+('Junior Data Analyst', 27.00),
+('Middle Data Analyst', 43.00),
+('Senior Data Analyst', 60.00),
+('Junior UX Designer', 26.00),
+('Middle UX Designer', 42.00),
+('Senior UX Designer', 61.00),
+('Junior Project Manager', 35.00),
+('Middle Project Manager', 55.00),
+('Senior Project Manager', 75.00),
+('Junior Mobile Developer', 30.00),
+('Middle Mobile Developer', 49.00),
+('Senior Mobile Developer', 69.00),
+('Junior System Administrator', 26.00),
+('Middle System Administrator', 44.00),
+('Senior System Administrator', 62.00);
 
 
 CREATE TABLE employee_days (
