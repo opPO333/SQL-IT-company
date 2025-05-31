@@ -1,13 +1,13 @@
 CREATE TABLE addresses (
 	id SERIAL PRIMARY KEY,
 	house VARCHAR(20) NOT NULL,
-	street VARCHAR(50) NOT NULL,
+	street VARCHAR(50),
 	city VARCHAR(50) NOT NULL,
 	country VARCHAR(50) NOT NULL,
 	state VARCHAR(50),
 	postal_code VARCHAR(20),
 
-	UNIQUE(postal_code, city, street, house, state, country)
+	UNIQUE(postal_code, street, house, country)
 );
 
 CREATE TABLE employees (
@@ -50,7 +50,7 @@ CREATE TABLE employee_departments_history (
 CREATE TABLE projects (
 	id SERIAL PRIMARY KEY,
 	title VARCHAR(50) UNIQUE NOT NULL,
-	description VARCHAR(255),
+	description VARCHAR,
 	start_date DATE NOT NULL,
 	end_date DATE,
 	company VARCHAR(30) NOT NULL,
