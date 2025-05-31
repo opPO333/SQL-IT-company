@@ -1,35 +1,40 @@
-DROP TYPE IF EXISTS equipment_type CASCADE;
-DROP TYPE IF EXISTS equipment_status CASCADE;
-
-DROP TABLE IF EXISTS
-    schedule_exceptions,
-    position_schedules,
-    employee_days,
-    employee_positions_history,
-    vacations,
-    employee_teams_history,
-    employee_departments_history,
-    tasks,
-    equipment,
-    teams,
-    departments,
-    projects,
-    employees,
-    positions,
-    addresses
-CASCADE;
-
 CREATE TABLE addresses
 (
     id          SERIAL PRIMARY KEY,
     house       VARCHAR(20) NOT NULL,
     street      VARCHAR(50),
-    city        VARCHAR(50) NOT NULL,
-    country     VARCHAR(50) NOT NULL,
-    state       VARCHAR(50),
+    city_id     INTEGER     NOT NULL,
     postal_code VARCHAR(20),
 
-    UNIQUE (postal_code, street, house, country)
+    UNIQUE (postal_code, city_id, street, house)
+);
+CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
+                                                       postal_code,
+                                                       COALESCE(street, ''),
+                                                       house,
+                                                       country
+    );
+
+CREATE TABLE countries
+(
+    id   SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE regions
+(
+    id         SERIAL PRIMARY KEY,
+    country_id INTEGER      NOT NULL REFERENCES countries (id) ON DELETE RESTRICT,
+    name       VARCHAR(100) NOT NULL,
+    UNIQUE (country_id, name)
+);
+
+CREATE TABLE cities
+(
+    id        SERIAL PRIMARY KEY,
+    region_id INTEGER      NOT NULL REFERENCES regions (id) ON DELETE RESTRICT,
+    name      VARCHAR(100) NOT NULL,
+    UNIQUE (region_id, name)
 );
 
 CREATE TABLE employees
@@ -48,9 +53,20 @@ CREATE TABLE employees
     birth_date                DATE,
 
     CHECK (gender IN ('M', 'F')),
-    CHECK (birth_date <= CURRENT_DATE AND birth_date <= CURRENT_DATE - INTERVAL '18 years'),
+    CHECK (birth_date <= CURRENT_DATE AND CURRENT_DATE - INTERVAL '18 years' >= birth_date),
     CHECK (phone IS NOT NULL OR email IS NOT NULL),
     CHECK (passport IS NOT NULL OR pesel IS NOT NULL)
+);
+
+-- TODO: ADD trigger when update smth from this info we need add to this table row
+CREATE TABLE employee_name_history
+(
+    id          INTEGER PRIMARY KEY REFERENCES employees (id) ON DELETE RESTRICT,
+    first_name  VARCHAR(30) NOT NULL,
+    second_name VARCHAR(30),
+    last_name   VARCHAR(30) NOT NULL,
+    start_date  DATE        NOT NULL,
+    end_date    DATE
 );
 
 CREATE TABLE departments
