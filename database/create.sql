@@ -246,12 +246,16 @@ CREATE TABLE equipment
     price         INTEGER
 );
 
+-- CREATE TABLE equipment_status_history (
+--     equipment_id INTEGER REFERENCES equipment(id) NOT NULL,
+--
+-- );
+
 create or replace function pesel_check() returns trigger as
 $$
 declare
     sum     integer := 0;
     weights integer[];
-
 begin
     weights := array [1, 3, 1, 9, 7, 3, 1, 9, 7, 3, 1];
 
