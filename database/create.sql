@@ -6,15 +6,14 @@ CREATE TABLE countries
 CREATE TABLE regions
 (
     name         VARCHAR(100) PRIMARY KEY,
-    country_name VARCHAR(100) NOT NULL REFERENCES countries (name) ON DELETE RESTRICT,
-    UNIQUE (country_name, name)
+    country_name VARCHAR(100) NOT NULL REFERENCES countries (name) ON DELETE RESTRICT
 );
 
 CREATE TABLE cities
 (
-    name        VARCHAR(100) PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,
     region_name VARCHAR(100) NOT NULL REFERENCES regions (name) ON DELETE RESTRICT,
-    UNIQUE (region_name, name)
+    PRIMARY KEY (region_name, name)
 );
 
 CREATE TABLE addresses
@@ -58,30 +57,47 @@ CREATE TABLE employees
 -- TODO: ADD trigger when update smth from this info we need add to this table row
 CREATE TABLE employee_name_history
 (
-    id          INTEGER PRIMARY KEY REFERENCES employees (id) ON DELETE RESTRICT,
+    employee_id INTEGER     NOT NULL REFERENCES employees (id) ON DELETE RESTRICT,
     first_name  VARCHAR(30) NOT NULL,
     second_name VARCHAR(30),
     last_name   VARCHAR(30) NOT NULL,
-    start_date  DATE        NOT NULL,
-    end_date    DATE
+    start_ts    TIMESTAMP   NOT NULL,
+    end_ts      TIMESTAMP,
+
+    CHECK (end_ts IS NULL OR start_ts <= end_ts),
+    PRIMARY KEY (employee_id, start_ts)
 );
 
 CREATE TABLE departments
 (
-    id      SERIAL PRIMARY KEY,
-    name    VARCHAR(50) UNIQUE NOT NULL,
-    head_id INTEGER            REFERENCES employees (id) ON DELETE SET NULL
+    name       VARCHAR(50) NOT NULL,
+    start_date DATE        NOT NULL,
+    end_date   DATE,
+
+    CHECK (end_date IS NULL OR start_date <= end_date),
+    PRIMARY KEY (name, start_date)
+);
+
+CREATE TABLE head_departments_history
+(
+    head_id       INTEGER REFERENCES employees (id) ON DELETE RESTRICT   NOT NULL,
+    department_id INTEGER REFERENCES departments (id) ON DELETE RESTRICT NOT NULL,
+    start_date    DATE                                                   NOT NULL,
+    end_date      DATE,
+
+    CHECK (end_date IS NULL OR start_date <= end_date),
+    PRIMARY KEY (head_id, start_date)
 );
 
 CREATE TABLE employee_departments_history
 (
-    id            SERIAL PRIMARY KEY,
-    employee_id   INTEGER REFERENCES employees (id) ON DELETE CASCADE   NOT NULL,
-    department_id INTEGER REFERENCES departments (id) ON DELETE CASCADE NOT NULL,
-    start_date    DATE                                                  NOT NULL,
+    employee_id   INTEGER REFERENCES employees (id) ON DELETE RESTRICT   NOT NULL,
+    department_id INTEGER REFERENCES departments (id) ON DELETE RESTRICT NOT NULL,
+    start_date    DATE                                                   NOT NULL,
     end_date      DATE,
 
-    CHECK (end_date IS NULL OR start_date <= end_date)
+    CHECK (end_date IS NULL OR start_date <= end_date),
+    PRIMARY KEY (employee_id, start_date)
 );
 
 CREATE TABLE projects
@@ -109,13 +125,13 @@ CREATE TABLE teams
 
 CREATE TABLE employee_teams_history
 (
-    id          SERIAL PRIMARY KEY,
     employee_id INTEGER REFERENCES employees (id) ON DELETE CASCADE NOT NULL,
     team_id     INTEGER REFERENCES teams (id) ON DELETE CASCADE     NOT NULL,
-    join_date   DATE                                                NOT NULL,
-    leave_date  DATE,
+    join_ts     TIMESTAMP                                           NOT NULL,
+    leave_ts    TIMESTAMP,
 
-    CHECK (leave_date IS NULL OR join_date <= leave_date)
+    CHECK (leave_ts IS NULL OR join_ts <= leave_ts),
+    PRIMARY KEY (employee_id, join_ts)
 );
 
 CREATE TABLE positions
