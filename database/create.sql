@@ -1,12 +1,31 @@
+CREATE TABLE countries
+(
+    name VARCHAR(100) PRIMARY KEY
+);
+
+CREATE TABLE regions
+(
+    name         VARCHAR(100) PRIMARY KEY,
+    country_name VARCHAR(100) NOT NULL REFERENCES countries (name) ON DELETE RESTRICT,
+    UNIQUE (country_name, name)
+);
+
+CREATE TABLE cities
+(
+    name        VARCHAR(100) PRIMARY KEY,
+    region_name VARCHAR(100) NOT NULL REFERENCES regions (name) ON DELETE RESTRICT,
+    UNIQUE (region_name, name)
+);
+
 CREATE TABLE addresses
 (
     id          SERIAL PRIMARY KEY,
-    house       VARCHAR(20) NOT NULL,
+    house       VARCHAR(20)  NOT NULL,
     street      VARCHAR(50),
-    city_id     INTEGER     NOT NULL,
+    city_name   VARCHAR(100) NOT NULL REFERENCES cities (name),
     postal_code VARCHAR(20),
 
-    UNIQUE (postal_code, city_id, street, house)
+    UNIQUE (postal_code, city_name, street, house)
 );
 CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
                                                        postal_code,
@@ -14,28 +33,6 @@ CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
                                                        house,
                                                        country
     );
-
-CREATE TABLE countries
-(
-    id   SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE
-);
-
-CREATE TABLE regions
-(
-    id         SERIAL PRIMARY KEY,
-    country_id INTEGER      NOT NULL REFERENCES countries (id) ON DELETE RESTRICT,
-    name       VARCHAR(100) NOT NULL,
-    UNIQUE (country_id, name)
-);
-
-CREATE TABLE cities
-(
-    id        SERIAL PRIMARY KEY,
-    region_id INTEGER      NOT NULL REFERENCES regions (id) ON DELETE RESTRICT,
-    name      VARCHAR(100) NOT NULL,
-    UNIQUE (region_id, name)
-);
 
 CREATE TABLE employees
 (
