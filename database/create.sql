@@ -5,32 +5,31 @@ CREATE TABLE countries
 
 CREATE TABLE regions
 (
-    name         VARCHAR(100) PRIMARY KEY,
-    country_name VARCHAR(100) NOT NULL REFERENCES countries (name) ON DELETE RESTRICT
+    id           SERIAL PRIMARY KEY,
+    country_name VARCHAR(100) NOT NULL REFERENCES countries (name) ON DELETE RESTRICT,
+    name         VARCHAR(100)
 );
 
 CREATE TABLE cities
 (
-    name        VARCHAR(100) NOT NULL,
-    region_name VARCHAR(100) NOT NULL REFERENCES regions (name) ON DELETE RESTRICT,
-    PRIMARY KEY (region_name, name)
+    id        SERIAL PRIMARY KEY,
+    region_id INTEGER      NOT NULL REFERENCES regions (id) ON DELETE RESTRICT,
+    name      VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE addresses
 (
     id          SERIAL PRIMARY KEY,
-    house       VARCHAR(20)  NOT NULL,
+    house       VARCHAR(20) NOT NULL,
     street      VARCHAR(50),
-    city_name   VARCHAR(100) NOT NULL REFERENCES cities (name),
+    city_id     INTEGER     NOT NULL REFERENCES cities (id),
     postal_code VARCHAR(20),
-
-    UNIQUE (postal_code, city_name, street, house)
 );
 CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
                                                        postal_code,
                                                        COALESCE(street, ''),
                                                        house,
-                                                       country
+                                                       city_id
     );
 
 CREATE TABLE employees
@@ -80,24 +79,30 @@ CREATE TABLE departments
 
 CREATE TABLE head_departments_history
 (
-    head_id       INTEGER REFERENCES employees (id) ON DELETE RESTRICT   NOT NULL,
-    department_id INTEGER REFERENCES departments (id) ON DELETE RESTRICT NOT NULL,
-    start_date    DATE                                                   NOT NULL,
-    end_date      DATE,
+    head_id               INTEGER REFERENCES employees (id) ON DELETE RESTRICT NOT NULL,
+    department_name       VARCHAR(50)                                          NOT NULL,
+    department_start_date DATE                                                 NOT NULL,
+    start_date            DATE                                                 NOT NULL,
+    end_date              DATE,
 
     CHECK (end_date IS NULL OR start_date <= end_date),
-    PRIMARY KEY (head_id, start_date)
+    PRIMARY KEY (head_id, start_date),
+    FOREIGN KEY (department_name, department_start_date) REFERENCES departments (name, start_date)
+        ON DELETE RESTRICT
 );
 
 CREATE TABLE employee_departments_history
 (
-    employee_id   INTEGER REFERENCES employees (id) ON DELETE RESTRICT   NOT NULL,
-    department_id INTEGER REFERENCES departments (id) ON DELETE RESTRICT NOT NULL,
-    start_date    DATE                                                   NOT NULL,
-    end_date      DATE,
+    employee_id           INTEGER REFERENCES employees (id) ON DELETE RESTRICT NOT NULL,
+    department_name       VARCHAR(50)                                          NOT NULL,
+    department_start_date DATE                                                 NOT NULL,
+    start_date            DATE                                                 NOT NULL,
+    end_date              DATE,
 
     CHECK (end_date IS NULL OR start_date <= end_date),
-    PRIMARY KEY (employee_id, start_date)
+    PRIMARY KEY (employee_id, start_date),
+    FOREIGN KEY (department_name, department_start_date) REFERENCES departments (name, start_date)
+        ON DELETE RESTRICT
 );
 
 CREATE TABLE projects
