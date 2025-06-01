@@ -25,7 +25,7 @@ CREATE TABLE addresses
     city_id     INTEGER     NOT NULL REFERENCES cities (id),
     postal_code VARCHAR(20)
 );
-CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
+CREATE UNIQUE  INDEX idx_addresses_unique ON addresses (
                                                        postal_code,
                                                        COALESCE(street, ''),
                                                        house,
