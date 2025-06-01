@@ -23,7 +23,7 @@ CREATE TABLE addresses
     house       VARCHAR(20) NOT NULL,
     street      VARCHAR(50),
     city_id     INTEGER     NOT NULL REFERENCES cities (id),
-    postal_code VARCHAR(20),
+    postal_code VARCHAR(20)
 );
 CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
                                                        postal_code,
@@ -238,18 +238,31 @@ CREATE TYPE equipment_status AS ENUM (
 CREATE TABLE equipment
 (
     id            SERIAL PRIMARY KEY,
-    name          VARCHAR(100)                        NOT NULL,
-    type          equipment_type                      NOT NULL,
+    name          VARCHAR(100)   NOT NULL,
+    type          equipment_type NOT NULL,
     serial_number VARCHAR(50) UNIQUE,
-    status        equipment_status DEFAULT 'in_stock' NOT NULL,
-    assigned_to   INTEGER                             REFERENCES employees (id) ON DELETE SET NULL,
     price         INTEGER
 );
 
--- CREATE TABLE equipment_status_history (
---     equipment_id INTEGER REFERENCES equipment(id) NOT NULL,
---
--- );
+CREATE TABLE equipment_status_history
+(
+    equipment_id INTEGER REFERENCES equipment (id)   NOT NULL,
+    status       equipment_status DEFAULT 'in_stock' NOT NULL,
+    start_date   DATE                                NOT NULL,
+    end_date     DATE,
+
+    CHECK (end_date IS NULL OR start_date <= end_date)
+);
+
+CREATE TABLE employee_equipment_history
+(
+    employee_id  INTEGER REFERENCES employees (id) NOT NULL,
+    equipment_id INTEGER REFERENCES equipment (id) NOT NULL,
+    start_date   DATE                              NOT NULL,
+    end_date     DATE,
+
+    CHECK (end_date IS NULL OR start_date <= end_date)
+);
 
 create or replace function pesel_check() returns trigger as
 $$

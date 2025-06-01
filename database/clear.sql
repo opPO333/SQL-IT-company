@@ -1,6 +1,9 @@
 DROP TYPE IF EXISTS equipment_type CASCADE;
 DROP TYPE IF EXISTS equipment_status CASCADE;
 
+DROP TRIGGER IF EXISTS pesel_check ON employees CASCADE;
+DROP FUNCTION IF EXISTS pesel_check CASCADE;
+
 DROP TABLE IF EXISTS
     employee_departments_history,
     employee_positions_history,
@@ -15,11 +18,14 @@ DROP TABLE IF EXISTS
     employee_days,
     vacations,
     tasks,
-    equipment,
     teams,
     projects,
     employees,
     positions,
     employee_name_history,
-    head_departments_history
+    head_departments_history,
+    equipment,
+    equipment_status_history,
+    employee_equipment_history
 CASCADE;
+
