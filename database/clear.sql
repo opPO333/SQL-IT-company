@@ -5,6 +5,8 @@ DROP TRIGGER IF EXISTS pesel_check ON employees CASCADE;
 DROP FUNCTION IF EXISTS pesel_check CASCADE;
 
 DROP TABLE IF EXISTS
+    schedule_exception_types,
+    employee_schedule,
     employee_departments_history,
     employee_positions_history,
     employee_teams_history,
