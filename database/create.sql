@@ -299,6 +299,21 @@ CREATE OR REPLACE VIEW teams_view AS
     WHERE t.end_date IS NULL;
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------------------------------
+
 create or replace function pesel_check() returns trigger as
 $$
 declare
@@ -463,6 +478,365 @@ CREATE TRIGGER check_single_active_position
     ON employee_positions_history
     FOR EACH ROW
 EXECUTE FUNCTION check_single_active_position();
+
+------------------------------------------------------------------------
+
+
+CREATE OR REPLACE FUNCTION check_employee_inserted_correctly()
+    RETURNS trigger AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM employee_positions_history
+        WHERE employee_id = NEW.id AND end_date IS NULL
+    ) THEN
+        RAISE EXCEPTION 'Employee must have a current position';
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER trg_check_employee_position
+    AFTER INSERT ON employees
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW
+EXECUTE FUNCTION check_employee_inserted_correctly();
+
+CREATE OR REPLACE FUNCTION add_employee(
+    _first_name VARCHAR(30),
+    _last_name VARCHAR(30),
+    _second_name VARCHAR(30),
+    _gender CHAR(1),
+    _phone VARCHAR(20),
+    _email VARCHAR(100),
+    _passport VARCHAR(20),
+    _pesel CHAR(11),
+    _address_id INTEGER,
+    _correspondence_address_id INTEGER,
+    _birth_date DATE,
+    _position VARCHAR(30),
+    _position_start_date DATE DEFAULT CURRENT_DATE,
+    _command_name VARCHAR(100) DEFAULT NULL,
+    _command_start_date DATE DEFAULT CURRENT_DATE,
+    _department_name VARCHAR(50) DEFAULT NULL,
+    _department_start_date DATE DEFAULT NULL,
+    _department_assign_start DATE DEFAULT CURRENT_DATE
+) RETURNS VOID AS $$
+DECLARE
+    _employee_id INTEGER;
+BEGIN
+    INSERT INTO employees (
+        first_name, last_name, second_name, gender,
+        phone, email, passport, pesel,
+        address_id, correspondence_address_id, birth_date
+    )
+    VALUES (
+               _first_name, _last_name, _second_name, _gender,
+               _phone, _email, _passport, _pesel,
+               _address_id, _correspondence_address_id, _birth_date
+           )
+    RETURNING id INTO _employee_id;
+
+    INSERT INTO employee_positions_history (
+        employee_id, position, start_date
+    ) VALUES (
+                 _employee_id, _position, _position_start_date
+             );
+
+    IF _command_name IS NOT NULL THEN
+        INSERT INTO employee_commands_history (
+            employee_id, command_name, start_date
+        ) VALUES (
+                     _employee_id, _command_name, _command_start_date
+                 );
+    END IF;
+
+    IF (_department_name IS NULL AND _department_start_date IS NOT NULL) OR
+       (_department_name IS NOT NULL AND _department_start_date IS NULL) THEN
+        RAISE EXCEPTION '_department_name is "%" and _department_start_date is "%", should be 2 or 0 nulls', _department_name, _department_start_date;
+    END IF;
+    IF _department_name IS NOT NULL AND _department_start_date IS NOT NULL THEN
+        INSERT INTO employee_departments_history (
+            employee_id, department_name, department_start_date, start_date
+        ) VALUES (
+                     _employee_id, _department_name, _department_start_date, _department_assign_start
+                 );
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+------------------------------------------------------------------------
+
+
+
+CREATE OR REPLACE FUNCTION check_departments_consistency()
+    RETURNS TRIGGER AS
+$$
+BEGIN
+    IF TG_OP = 'UPDATE' AND OLD.end_date IS NOT NULL THEN
+        RAISE EXCEPTION 'we should not update departments history'
+    end if;
+
+    IF NEW.end_date IS NOT NULL THEN
+        IF TG_OP = 'UPDATE' AND OLD.end_date IS NULL THEN
+            UPDATE head_departments_history
+            SET end_date = NEW.end_date
+            WHERE department_name = NEW.name
+              AND department_start_date = NEW.start_date
+              AND end_date IS NULL;
+
+            UPDATE employee_departments_history
+            SET end_date = NEW.end_date
+            WHERE department_name = NEW.name
+              AND department_start_date = NEW.start_date
+              AND end_date IS NULL;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE CONSTRAINT TRIGGER departments_consistency_trigger
+    BEFORE INSERT OR UPDATE ON departments
+    FOR EACH ROW
+EXECUTE FUNCTION check_departments_consistency();
+
+
+
+-----------------------------------------------
+
+
+
+CREATE OR REPLACE FUNCTION create_full_address(
+    p_country_name VARCHAR,
+    p_region_name  VARCHAR,
+    p_city_name    VARCHAR,
+    p_house       VARCHAR,
+    p_street      VARCHAR DEFAULT NULL,
+    p_postal_code VARCHAR DEFAULT NULL
+) RETURNS INTEGER AS
+$$
+DECLARE
+    v_country_name VARCHAR;
+    v_region_id    INTEGER;
+    v_city_id      INTEGER;
+    v_address_id   INTEGER;
+BEGIN
+    INSERT INTO countries(name)
+    VALUES (p_country_name)
+    ON CONFLICT (name) DO NOTHING;
+    v_country_name = p_country_name;
+
+    SELECT id INTO v_region_id FROM regions
+    WHERE country_name = v_country_name AND name = p_region_name;
+
+    IF v_region_id IS NULL THEN
+        INSERT INTO regions(country_name, name)
+        VALUES (v_country_name, p_region_name)
+        RETURNING id INTO v_region_id;
+    END IF;
+
+    SELECT id INTO v_city_id FROM cities
+    WHERE region_id = v_region_id AND name = p_city_name;
+
+    IF v_city_id IS NULL THEN
+        INSERT INTO cities(region_id, name)
+        VALUES (v_region_id, p_city_name)
+        RETURNING id INTO v_city_id;
+    END IF;
+
+    SELECT id INTO v_address_id FROM addresses
+    WHERE postal_code = p_postal_code
+      AND COALESCE(street, '') = COALESCE(p_street, '')
+      AND house = p_house
+      AND city_id = v_city_id;
+
+    IF v_address_id IS NULL THEN
+        INSERT INTO addresses(house, street, city_id, postal_code)
+        VALUES (p_house, p_street, v_city_id, p_postal_code)
+        RETURNING id INTO v_address_id;
+    END IF;
+
+    RETURN v_address_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+----------------------------------------------------------
+
+
+CREATE OR REPLACE FUNCTION check_unique_active_head()
+    RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.end_date IS NULL THEN
+        IF TG_OP = 'INSERT' THEN
+            IF EXISTS (
+                SELECT 1 FROM head_departments_history
+                WHERE department_name = NEW.department_name AND end_date IS NULL
+            ) THEN
+                RAISE EXCEPTION 'Active head already exists for department %', NEW.department_name;
+            END IF;
+        ELSIF TG_OP = 'UPDATE' THEN
+            IF (NEW.head_id, NEW.start_date) != (OLD.head_id, OLD.start_date) THEN
+                IF EXISTS (
+                    SELECT 1 FROM head_departments_history
+                    WHERE department_name = NEW.department_name AND end_date IS NULL
+                      AND (head_id, start_date) != (OLD.head_id, OLD.start_date)
+                ) THEN
+                    RAISE EXCEPTION 'Active head already exists for department %', NEW.department_name;
+                END IF;
+            END IF;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE CONSTRAINT TRIGGER trg_check_unique_active_head
+    BEFORE INSERT OR UPDATE ON head_departments_history
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW
+EXECUTE FUNCTION check_unique_active_head();
+
+
+
+--------------------------------------------------------------------
+
+
+CREATE OR REPLACE FUNCTION check_unique_active_position()
+    RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.end_date IS NULL THEN
+        IF TG_OP = 'INSERT'
+            OR (TG_OP = 'UPDATE' AND (NEW.employee_id, NEW.start_date) != (OLD.employee_id, OLD.start_date)) THEN
+            IF EXISTS (
+                SELECT 1 FROM employee_positions_history
+                WHERE employee_id = NEW.employee_id
+                  AND end_date IS NULL
+                  AND (TG_OP = 'INSERT' OR (employee_id, start_date) != (OLD.employee_id, OLD.start_date))
+            ) THEN
+                RAISE EXCEPTION 'Employee % already has an active position record', NEW.employee_id;
+            END IF;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER trg_check_unique_active_position
+    BEFORE INSERT OR UPDATE ON employee_positions_history
+    FOR EACH ROW
+EXECUTE FUNCTION check_unique_active_position();
+
+
+--------------------------------------------------------------------
+
+
+CREATE OR REPLACE FUNCTION check_unique_active_department()
+    RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.end_date IS NULL THEN
+        IF TG_OP = 'INSERT' THEN
+            IF EXISTS (
+                SELECT 1 FROM employee_departments_history
+                WHERE employee_id = NEW.employee_id AND end_date IS NULL
+            ) THEN
+                RAISE EXCEPTION 'Employee % already assigned to an active department', NEW.employee_id;
+            END IF;
+        ELSIF TG_OP = 'UPDATE' THEN
+            IF (NEW.department_name, NEW.department_start_date, NEW.start_date) !=
+               (OLD.department_name, OLD.department_start_date, OLD.start_date) THEN
+                IF EXISTS (
+                    SELECT 1 FROM employee_departments_history
+                    WHERE employee_id = NEW.employee_id AND end_date IS NULL
+                      AND (department_name, department_start_date, start_date) !=
+                          (OLD.department_name, OLD.department_start_date, OLD.start_date)
+                ) THEN
+                    RAISE EXCEPTION 'Employee % already assigned to an active department', NEW.employee_id;
+                END IF;
+            END IF;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER trg_check_unique_active_department
+    BEFORE INSERT OR UPDATE ON employee_departments_history
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW
+EXECUTE FUNCTION check_unique_active_department();
+
+
+--------------------------------------------------
+
+
+CREATE OR REPLACE FUNCTION check_unique_active_team()
+    RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.leave_ts IS NULL THEN
+        IF TG_OP = 'INSERT'
+            OR (TG_OP = 'UPDATE' AND (NEW.employee_id, NEW.join_ts) != (OLD.employee_id, OLD.join_ts)) THEN
+            IF EXISTS (
+                SELECT 1 FROM employee_teams_history
+                WHERE employee_id = NEW.employee_id
+                  AND leave_ts IS NULL
+                  AND (TG_OP = 'INSERT' OR (employee_id, join_ts) != (OLD.employee_id, OLD.join_ts))
+            ) THEN
+                RAISE EXCEPTION 'Employee % already has an active team assignment', NEW.employee_id;
+            END IF;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER trg_check_unique_active_team
+    BEFORE INSERT OR UPDATE ON employee_teams_history
+    FOR EACH ROW
+EXECUTE FUNCTION check_unique_active_team();
+
+
+-----------------------------------------------------
+
+
+CREATE OR REPLACE FUNCTION check_unique_active_vacation()
+    RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.status IN ('requested', 'approved') THEN
+        IF TG_OP = 'INSERT'
+            OR (TG_OP = 'UPDATE' AND NEW.id != OLD.id) THEN
+            IF EXISTS (
+                SELECT 1 FROM vacations
+                WHERE employee_id = NEW.employee_id
+                  AND status IN ('requested', 'approved')
+                  AND (
+                    daterange(start_date, end_date, '[]') &&
+                    daterange(NEW.start_date, NEW.end_date, '[]')
+                    )
+                  AND (TG_OP = 'INSERT' OR id != OLD.id)
+            ) THEN
+                RAISE EXCEPTION 'Employee % already has an active vacation overlapping [% - %]',
+                    NEW.employee_id, NEW.start_date, NEW.end_date;
+            END IF;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER trg_check_unique_active_vacation
+    BEFORE INSERT OR UPDATE ON vacations
+    FOR EACH ROW
+EXECUTE FUNCTION check_unique_active_vacation();
+
+
 
 /*
 BEGIN;
@@ -8838,3 +9212,4 @@ VALUES ('Samsung Galaxy Tab', 'monitor', 'SN791322', 'broken', NULL, 806),
        ('Dell XPS 15', 'tablet', 'SN589069', 'under_repair', NULL, 1346),
        ('iPhone 13', 'phone', 'SN139383', 'in_stock', NULL, 2430);
 COMMIT;
+*/
