@@ -22,7 +22,7 @@ CREATE TABLE addresses
     id          SERIAL PRIMARY KEY,
     house       VARCHAR(20) NOT NULL,
     street      VARCHAR(50),
-    city_id     INTEGER     NOT NULL REFERENCES cities (id),
+    city_id     INTEGER     NOT NULL REFERENCES cities (id) ON DELETE RESTRICT,
     postal_code VARCHAR(20)
 );
 CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
@@ -53,6 +53,7 @@ CREATE TABLE employees
     CHECK (passport IS NOT NULL OR pesel IS NOT NULL)
 );
 
+-- TODO: ADD trigger when update smth from this info we need add to this table row
 CREATE TABLE employee_name_history
 (
     employee_id INTEGER     NOT NULL REFERENCES employees (id) ON DELETE RESTRICT,
@@ -104,6 +105,7 @@ CREATE TABLE employee_departments_history
         ON DELETE RESTRICT
 );
 
+-- TODO: here remove id mb
 CREATE TABLE projects
 (
     title       VARCHAR(50) PRIMARY KEY,
@@ -115,6 +117,7 @@ CREATE TABLE projects
     CHECK (end_date IS NULL OR start_date <= end_date)
 );
 
+-- TODO: same here mb
 CREATE TABLE teams
 (
     id            SERIAL PRIMARY KEY,
@@ -242,9 +245,9 @@ CREATE TABLE equipment
 
 CREATE TABLE equipment_status_history
 (
-    equipment_id INTEGER REFERENCES equipment (id)   NOT NULL,
-    status       equipment_status DEFAULT 'in_stock' NOT NULL,
-    start_date   DATE                                NOT NULL,
+    equipment_id INTEGER REFERENCES equipment (id) ON DELETE RESTRICT NOT NULL,
+    status       equipment_status DEFAULT 'in_stock'                  NOT NULL,
+    start_date   DATE                                                 NOT NULL,
     end_date     DATE,
 
     CHECK (end_date IS NULL OR start_date <= end_date)
@@ -252,9 +255,9 @@ CREATE TABLE equipment_status_history
 
 CREATE TABLE employee_equipment_history
 (
-    employee_id  INTEGER REFERENCES employees (id) NOT NULL,
-    equipment_id INTEGER REFERENCES equipment (id) NOT NULL,
-    start_date   DATE                              NOT NULL,
+    employee_id  INTEGER REFERENCES employees (id) ON DELETE RESTRICT NOT NULL,
+    equipment_id INTEGER REFERENCES equipment (id) ON DELETE RESTRICT NOT NULL,
+    start_date   DATE                                                 NOT NULL,
     end_date     DATE,
 
     CHECK (end_date IS NULL OR start_date <= end_date)
