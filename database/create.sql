@@ -35,17 +35,17 @@ CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
 CREATE TABLE employees
 (
     id                        SERIAL PRIMARY KEY,
-    first_name                VARCHAR(30)                       NOT NULL,
-    last_name                 VARCHAR(30)                       NOT NULL,
+    first_name                VARCHAR(30)                                          NOT NULL,
+    last_name                 VARCHAR(30)                                          NOT NULL,
     second_name               VARCHAR(30),
-    gender                    CHAR(1)                           NOT NULL,
+    gender                    CHAR(1)                                              NOT NULL,
     phone                     VARCHAR(20),
     email                     VARCHAR(100) UNIQUE,
     passport                  VARCHAR(20) UNIQUE,
     pesel                     CHAR(11) UNIQUE,
-    address_id                INTEGER                           REFERENCES addresses (id) ON DELETE SET NULL,
-    correspondence_address_id INTEGER REFERENCES addresses (id) NOT NULL ON DELETE RESTRICT,
-    birth_date                DATE                              NOT NULL,
+    address_id                INTEGER                                              REFERENCES addresses (id) ON DELETE SET NULL,
+    correspondence_address_id INTEGER REFERENCES addresses (id) ON DELETE RESTRICT NOT NULL,
+    birth_date                DATE                                                 NOT NULL,
 
     CHECK (gender IN ('M', 'F')),
     CHECK (birth_date <= CURRENT_DATE AND CURRENT_DATE - INTERVAL '18 years' >= birth_date),
@@ -53,7 +53,6 @@ CREATE TABLE employees
     CHECK (passport IS NOT NULL OR pesel IS NOT NULL)
 );
 
--- TODO: ADD trigger when update smth from this info we need add to this table row
 CREATE TABLE employee_name_history
 (
     employee_id INTEGER     NOT NULL REFERENCES employees (id) ON DELETE RESTRICT,
@@ -155,7 +154,7 @@ CREATE TABLE employee_schedule
     end_time    TIME                                                 NOT NULL,
 
     PRIMARY KEY (employee_id, weekday, start_time)
-)
+);
 
 CREATE TABLE schedule_exceptions
 (
@@ -176,9 +175,8 @@ CREATE TABLE schedule_exception_types
 
     --Always in the lowercase
     CHECK (type = LOWER(type))
-)
+);
 
---Should be some 'mnger' position that should approve such things
 CREATE TABLE vacations
 (
     id          SERIAL PRIMARY KEY,
@@ -269,7 +267,17 @@ $$
 declare
     sum     integer := 0;
     weights integer[];
+    yy      integer;
+    mm      integer;
+    dd      integer;
+    century integer;
+    birth   date;
+    gender  char(1);
 begin
+    if new.pesel is null then
+        return new;
+    end if;
+
     weights := array [1, 3, 1, 9, 7, 3, 1, 9, 7, 3, 1];
 
     if char_length(new.pesel) != 11 then
@@ -292,6 +300,44 @@ begin
         raise exception 'Wrong PESEL';
     end if;
 
+    if substring(new.pesel, 10, 1)::int % 2 = 0 then
+        gender := 'F';
+    else
+        gender := 'M';
+    end if;
+
+    if gender != new.gender then
+        raise exception 'Gender does not match PESEL';
+    end if;
+
+    yy := substring(new.pesel from 1 for 2)::int;
+    mm := substring(new.pesel from 3 for 2)::int;
+    dd := substring(new.pesel from 5 for 2)::int;
+
+    if mm between 1 and 12 then
+        century := 1900;
+    elsif mm between 21 and 32 then
+        century := 2000;
+        mm := mm - 20;
+    elsif mm between 41 and 52 then
+        century := 2100;
+        mm := mm - 40;
+    elsif mm between 61 and 72 then
+        century := 2200;
+        mm := mm - 60;
+    elsif mm between 81 and 92 then
+        century := 1800;
+        mm := mm - 80;
+    else
+        raise exception 'Wrong PESEL: invalid month encoding';
+    end if;
+
+    birth := make_date(century + yy, mm, dd);
+
+    if birth != new.birth_date then
+        raise exception 'Birth date does not match PESEL';
+    end if;
+
     return new;
 end;
 $$ language plpgsql;
@@ -302,6 +348,8 @@ create trigger pesel_check
     for each row
 execute function pesel_check();
 
+
+/*
 BEGIN;
 INSERT INTO addresses (house, street, city, country, state, postal_code)
 VALUES ('299', 'Lakeview Drive', 'Munich', 'Canada', 'Quebec', 'P6PYAR'),
@@ -8675,3 +8723,4 @@ VALUES ('Samsung Galaxy Tab', 'monitor', 'SN791322', 'broken', NULL, 806),
        ('Dell XPS 15', 'tablet', 'SN589069', 'under_repair', NULL, 1346),
        ('iPhone 13', 'phone', 'SN139383', 'in_stock', NULL, 2430);
 COMMIT;
+*/
