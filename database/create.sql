@@ -25,7 +25,7 @@ CREATE TABLE addresses
     city_id     INTEGER     NOT NULL REFERENCES cities (id),
     postal_code VARCHAR(20)
 );
-CREATE UNIQUE  INDEX idx_addresses_unique ON addresses (
+CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
                                                        postal_code,
                                                        COALESCE(street, ''),
                                                        house,
@@ -35,17 +35,17 @@ CREATE UNIQUE  INDEX idx_addresses_unique ON addresses (
 CREATE TABLE employees
 (
     id                        SERIAL PRIMARY KEY,
-    first_name                VARCHAR(30) NOT NULL,
-    last_name                 VARCHAR(30) NOT NULL,
+    first_name                VARCHAR(30)                       NOT NULL,
+    last_name                 VARCHAR(30)                       NOT NULL,
     second_name               VARCHAR(30),
-    gender                    CHAR(1)     NOT NULL,
+    gender                    CHAR(1)                           NOT NULL,
     phone                     VARCHAR(20),
     email                     VARCHAR(100) UNIQUE,
     passport                  VARCHAR(20) UNIQUE,
     pesel                     CHAR(11) UNIQUE,
-    address_id                INTEGER     REFERENCES addresses (id) ON DELETE SET NULL,
-    correspondence_address_id INTEGER     REFERENCES addresses (id) ON DELETE SET NULL,
-    birth_date                DATE,
+    address_id                INTEGER                           REFERENCES addresses (id) ON DELETE SET NULL,
+    correspondence_address_id INTEGER REFERENCES addresses (id) NOT NULL ON DELETE RESTRICT,
+    birth_date                DATE                              NOT NULL,
 
     CHECK (gender IN ('M', 'F')),
     CHECK (birth_date <= CURRENT_DATE AND CURRENT_DATE - INTERVAL '18 years' >= birth_date),
@@ -150,36 +150,36 @@ CREATE TABLE positions
     CHECK (salary_per_hour >= 0)
 );
 
-CREATE TABLE employee_days
+CREATE TABLE employee_schedule
 (
-    id          SERIAL PRIMARY KEY,
-    employee_id INTEGER REFERENCES employees (id) ON DELETE CASCADE NOT NULL,
-    date        DATE                                                NOT NULL,
-    is_paid     BOOLEAN DEFAULT FALSE
-);
+    employee_id INTEGER REFERENCES employees (id) ON DELETE RESTRICT NOT NULL,
+    weekday     INTEGER                                              NOT NULL CHECK (weekday BETWEEN 1 AND 7),
+    start_time  TIME                                                 NOT NULL,
+    end_time    TIME                                                 NOT NULL,
 
-CREATE TABLE position_schedules
-(
-    id          SERIAL PRIMARY KEY,
-    position    VARCHAR(30) REFERENCES positions (position) ON DELETE CASCADE,
-    day_of_weak INTEGER,
-    start_time  TIME NOT NULL,
-    end_time    TIME NOT NULL,
-
-    CHECK (day_of_weak BETWEEN 1 AND 7)
-);
+    PRIMARY KEY (employee_id, weekday, start_time)
+)
 
 CREATE TABLE schedule_exceptions
 (
-    id          SERIAL PRIMARY KEY,
-    employee_id INTEGER REFERENCES employees (id) ON DELETE CASCADE NOT NULL,
-    date        DATE                                                NOT NULL,
-    type        VARCHAR(30)                                         NOT NULL,
-    is_paid     BOOLEAN                                             NOT NULL,
+    employee_id INTEGER REFERENCES employees (id) ON DELETE RESTRICT                      NOT NULL,
+    date        DATE                                                                      NOT NULL,
+    start_time  TIME                                                                      NOT NULL,
+    end_time    TIME                                                                      NOT NULL,
+    type        VARCHAR(30) REFERENCES schedule_exception_types (type) ON DELETE RESTRICT NOT NULL,
     description VARCHAR(255),
 
-    CHECK (type IN ('vacation', 'sick', 'day_off', 'absent', 'holiday'))
+    PRIMARY KEY (employee_id, date, start_time)
 );
+
+CREATE TABLE schedule_exception_types
+(
+    type    VARCHAR(30) PRIMARY KEY NOT NULL,
+    is_paid BOOLEAN                 NOT NULL,
+
+    --Always in the lowercase
+    CHECK (type = LOWER(type))
+)
 
 --Should be some 'mnger' position that should approve such things
 CREATE TABLE vacations
