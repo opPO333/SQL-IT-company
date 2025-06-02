@@ -400,6 +400,13 @@ create trigger pesel_check
     for each row
 execute function pesel_check();
 
+
+
+------------------------------------------------------------------------
+
+
+
+
 CREATE OR REPLACE FUNCTION employee_name_change() RETURNS TRIGGER AS
 $$
 BEGIN
@@ -432,6 +439,12 @@ CREATE TRIGGER employee_name_change
     FOR EACH ROW
 EXECUTE FUNCTION employee_name_change();
 
+
+
+------------------------------------------------------------------------
+
+
+
 CREATE OR REPLACE FUNCTION check_and_close_position() RETURNS TRIGGER AS
 $$
 BEGIN
@@ -456,6 +469,9 @@ CREATE TRIGGER check_and_close_position
     ON employee_positions_history
     FOR EACH ROW
 EXECUTE FUNCTION check_and_close_position();
+
+
+------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION check_single_active_position() RETURNS TRIGGER AS
 $$
