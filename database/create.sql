@@ -195,9 +195,9 @@ CREATE TABLE vacations
 
 CREATE TABLE employee_positions_history
 (
-    employee_id INTEGER REFERENCES employees (id) ON DELETE RESTRICT NOT NULL,
+    employee_id INTEGER REFERENCES employees (id) ON DELETE RESTRICT           NOT NULL,
     position    VARCHAR(30) REFERENCES positions (position) ON DELETE RESTRICT NOT NULL,
-    start_date  DATE NOT NULL,
+    start_date  DATE                                                           NOT NULL,
     end_date    DATE,
 
     CHECK (end_date IS NULL OR start_date <= end_date),
@@ -349,6 +349,84 @@ create trigger pesel_check
     for each row
 execute function pesel_check();
 
+CREATE OR REPLACE FUNCTION employee_name_change() RETURNS TRIGGER AS
+$$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO employee_name_history (employee_id, first_name, second_name, last_name, start_ts)
+        VALUES (NEW.id, NEW.first_name, NEW.second_name, NEW.last_name, now());
+
+    ELSIF TG_OP = 'UPDATE' THEN
+        IF NEW.first_name IS DISTINCT FROM OLD.first_name
+            OR NEW.second_name IS DISTINCT FROM OLD.second_name
+            OR NEW.last_name IS DISTINCT FROM OLD.last_name THEN
+
+            UPDATE employee_name_history
+            SET end_ts = now()
+            WHERE employee_id = OLD.id
+              AND end_ts IS NULL;
+
+            INSERT INTO employee_name_history (employee_id, first_name, second_name, last_name, start_ts)
+            VALUES (NEW.id, NEW.first_name, NEW.second_name, NEW.last_name, now());
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER employee_name_change
+    AFTER INSERT OR UPDATE
+    ON employees
+    FOR EACH ROW
+EXECUTE FUNCTION employee_name_change();
+
+CREATE OR REPLACE FUNCTION check_and_close_position() RETURNS TRIGGER AS
+$$
+BEGIN
+    IF EXISTS (SELECT 1
+               FROM employee_positions_history
+               WHERE employee_id = NEW.employee_id
+                 AND NOT (
+                   COALESCE(NEW.end_date, DATE '9999-12-31') < start_date OR
+                   NEW.start_date > COALESCE(end_date, DATE '9999-12-31')
+                   )) THEN
+        RAISE EXCEPTION 'Overlapping position period for employee %', NEW.employee_id;
+    END IF;
+
+
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_and_close_position
+    BEFORE INSERT OR UPDATE
+    ON employee_positions_history
+    FOR EACH ROW
+EXECUTE FUNCTION check_and_close_position();
+
+CREATE OR REPLACE FUNCTION check_single_active_position() RETURNS TRIGGER AS
+$$
+BEGIN
+    IF NEW.end_date IS NULL THEN
+        IF EXISTS (SELECT 1
+                   FROM employee_positions_history eph
+                   WHERE eph.employee_id = NEW.employee_id
+                     AND eph.end_date IS NULL
+                     AND eph.id <> NEW.id) THEN
+            RAISE EXCEPTION 'Employee already has an active position';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_single_active_position
+    BEFORE INSERT OR UPDATE
+    ON employee_positions_history
+    FOR EACH ROW
+EXECUTE FUNCTION check_single_active_position();
 
 /*
 BEGIN;
