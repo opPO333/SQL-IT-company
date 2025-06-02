@@ -22,7 +22,7 @@ CREATE TABLE addresses
     id          SERIAL PRIMARY KEY,
     house       VARCHAR(20) NOT NULL,
     street      VARCHAR(50),
-    city_id     INTEGER     NOT NULL REFERENCES cities (id),
+    city_id     INTEGER     NOT NULL REFERENCES cities (id) ON DELETE RESTRICT,
     postal_code VARCHAR(20)
 );
 CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
@@ -53,6 +53,7 @@ CREATE TABLE employees
     CHECK (passport IS NOT NULL OR pesel IS NOT NULL)
 );
 
+-- TODO: ADD trigger when update smth from this info we need add to this table row
 CREATE TABLE employee_name_history
 (
     employee_id INTEGER     NOT NULL REFERENCES employees (id) ON DELETE RESTRICT,
@@ -104,34 +105,34 @@ CREATE TABLE employee_departments_history
         ON DELETE RESTRICT
 );
 
+-- TODO: here remove id mb
 CREATE TABLE projects
 (
-    id          SERIAL PRIMARY KEY,
-    title       VARCHAR(50) UNIQUE NOT NULL,
+    title       VARCHAR(50) PRIMARY KEY,
     description VARCHAR,
-    start_date  DATE               NOT NULL,
+    start_date  DATE        NOT NULL,
     end_date    DATE,
-    company     VARCHAR(30)        NOT NULL,
+    company     VARCHAR(50) NOT NULL,
 
     CHECK (end_date IS NULL OR start_date <= end_date)
 );
 
+-- TODO: same here mb
 CREATE TABLE teams
 (
-    id         SERIAL PRIMARY KEY,
-    name       VARCHAR(50) UNIQUE NOT NULL,
-    start_date DATE               NOT NULL,
-    end_date   DATE,
-    project_id INTEGER            REFERENCES projects (id) ON DELETE SET NULL,
+    id            SERIAL PRIMARY KEY,
+    start_date    DATE NOT NULL,
+    end_date      DATE,
+    project_title VARCHAR(50) REFERENCES projects (title) ON DELETE RESTRICT,
 
     CHECK (end_date IS NULL OR start_date <= end_date)
 );
 
 CREATE TABLE employee_teams_history
 (
-    employee_id INTEGER REFERENCES employees (id) ON DELETE CASCADE NOT NULL,
-    team_id     INTEGER REFERENCES teams (id) ON DELETE CASCADE     NOT NULL,
-    join_ts     TIMESTAMP                                           NOT NULL,
+    employee_id INTEGER REFERENCES employees (id) ON DELETE RESTRICT NOT NULL,
+    team_id     INTEGER REFERENCES teams (id) ON DELETE RESTRICT     NOT NULL,
+    join_ts     TIMESTAMP                                            NOT NULL,
     leave_ts    TIMESTAMP,
 
     CHECK (leave_ts IS NULL OR join_ts <= leave_ts),
@@ -180,12 +181,12 @@ CREATE TABLE schedule_exception_types
 CREATE TABLE vacations
 (
     id          SERIAL PRIMARY KEY,
-    employee_id INTEGER REFERENCES employees (id) NOT NULL,
-    start_date  DATE                              NOT NULL,
-    end_date    DATE                              NOT NULL,
-    type        VARCHAR(20)                       NOT NULL,
-    status      VARCHAR(20) DEFAULT 'requested'   NOT NULL,
-    approved_by INTEGER REFERENCES employees (id),
+    employee_id INTEGER REFERENCES employees (id) ON DELETE RESTRICT NOT NULL,
+    start_date  DATE                                                 NOT NULL,
+    end_date    DATE                                                 NOT NULL,
+    type        VARCHAR(20)                                          NOT NULL,
+    status      VARCHAR(20) DEFAULT 'requested'                      NOT NULL,
+    approved_by INTEGER REFERENCES employees (id) ON DELETE RESTRICT,
     created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
 
     CHECK (type IN ('paid', 'unpaid', 'sick', 'parental')),
@@ -195,8 +196,8 @@ CREATE TABLE vacations
 CREATE TABLE employee_positions_history
 (
     id          SERIAL PRIMARY KEY,
-    employee_id INTEGER REFERENCES employees (id) ON DELETE CASCADE,
-    position    VARCHAR(30) REFERENCES positions (position) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES employees (id) ON DELETE RESTRICT,
+    position    VARCHAR(30) REFERENCES positions (position) ON DELETE RESTRICT,
     start_date  DATE NOT NULL,
     end_date    DATE,
 
@@ -206,13 +207,13 @@ CREATE TABLE employee_positions_history
 CREATE TABLE tasks
 (
     id          SERIAL PRIMARY KEY,
-    title       VARCHAR(40)                                        NOT NULL UNIQUE,
+    title       VARCHAR(40)                                         NOT NULL UNIQUE,
     description VARCHAR(200),
-    project_id  INTEGER REFERENCES projects (id) ON DELETE CASCADE NOT NULL,
-    team_id     INTEGER                                            REFERENCES teams (id) ON DELETE SET NULL,
-    status      VARCHAR(30) DEFAULT 'backlog'                      NOT NULL,
-    priority    INTEGER                                            NOT NULL,
-    added_date  DATE                                               NOT NULL,
+    project_id  INTEGER REFERENCES projects (id) ON DELETE RESTRICT NOT NULL,
+    team_id     INTEGER                                             REFERENCES teams (id) ON DELETE SET NULL,
+    status      VARCHAR(30) DEFAULT 'backlog'                       NOT NULL,
+    priority    INTEGER                                             NOT NULL,
+    added_date  DATE                                                NOT NULL,
     solved_date DATE,
 
     CHECK (solved_date IS NULL OR added_date <= solved_date)
@@ -244,9 +245,9 @@ CREATE TABLE equipment
 
 CREATE TABLE equipment_status_history
 (
-    equipment_id INTEGER REFERENCES equipment (id)   NOT NULL,
-    status       equipment_status DEFAULT 'in_stock' NOT NULL,
-    start_date   DATE                                NOT NULL,
+    equipment_id INTEGER REFERENCES equipment (id) ON DELETE RESTRICT NOT NULL,
+    status       equipment_status DEFAULT 'in_stock'                  NOT NULL,
+    start_date   DATE                                                 NOT NULL,
     end_date     DATE,
 
     CHECK (end_date IS NULL OR start_date <= end_date)
@@ -254,9 +255,9 @@ CREATE TABLE equipment_status_history
 
 CREATE TABLE employee_equipment_history
 (
-    employee_id  INTEGER REFERENCES employees (id) NOT NULL,
-    equipment_id INTEGER REFERENCES equipment (id) NOT NULL,
-    start_date   DATE                              NOT NULL,
+    employee_id  INTEGER REFERENCES employees (id) ON DELETE RESTRICT NOT NULL,
+    equipment_id INTEGER REFERENCES equipment (id) ON DELETE RESTRICT NOT NULL,
+    start_date   DATE                                                 NOT NULL,
     end_date     DATE,
 
     CHECK (end_date IS NULL OR start_date <= end_date)
