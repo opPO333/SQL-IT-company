@@ -105,7 +105,6 @@ CREATE TABLE employee_departments_history
         ON DELETE RESTRICT
 );
 
--- TODO: here remove id mb
 CREATE TABLE projects
 (
     title       VARCHAR(50) PRIMARY KEY,
@@ -117,7 +116,6 @@ CREATE TABLE projects
     CHECK (end_date IS NULL OR start_date <= end_date)
 );
 
--- TODO: same here mb
 CREATE TABLE teams
 (
     id            SERIAL PRIMARY KEY,
@@ -178,6 +176,16 @@ CREATE TABLE schedule_exceptions
     PRIMARY KEY (employee_id, date, start_time)
 );
 
+CREATE TABLE schedule_exception_types
+(
+    type    VARCHAR(30) PRIMARY KEY NOT NULL,
+    is_paid BOOLEAN                 NOT NULL,
+
+    --Always in the lowercase
+    CHECK (type = LOWER(type))
+)
+
+--Should be some 'mnger' position that should approve such things
 CREATE TABLE vacations
 (
     id          SERIAL PRIMARY KEY,
@@ -262,6 +270,34 @@ CREATE TABLE employee_equipment_history
 
     CHECK (end_date IS NULL OR start_date <= end_date)
 );
+
+  CREATE OR REPLACE VIEW employees_view AS
+  SELECT
+    e.id,
+    e.first_name,
+    e.last_name,
+    e.pesel,
+    edh.department_name,
+    edh.department_start_date,
+    eth.team_id
+  FROM employees e
+  JOIN employee_departments_history edh
+    ON e.id = edh.employee_id
+   AND edh.end_date IS NULL
+  JOIN employee_teams_history eth on e.id = eth.employee_id;
+
+CREATE OR REPLACE VIEW departments_view AS
+SELECT d.*, concat(e.first_name, ' ', e.last_name) as head_name FROM departments d
+LEFT JOIN head_departments_history hdh
+    ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date
+LEFT JOIN employees e on hdh.head_id = e.id
+WHERE d.end_date IS NULL;
+
+CREATE OR REPLACE VIEW teams_view AS
+    SELECT t.id, t.name, t.start_date, p.title as project_title
+    FROM teams t LEFT JOIN projects p on p.id = t.project_id
+    WHERE t.end_date IS NULL;
+
 
 create or replace function pesel_check() returns trigger as
 $$
@@ -8802,4 +8838,3 @@ VALUES ('Samsung Galaxy Tab', 'monitor', 'SN791322', 'broken', NULL, 806),
        ('Dell XPS 15', 'tablet', 'SN589069', 'under_repair', NULL, 1346),
        ('iPhone 13', 'phone', 'SN139383', 'in_stock', NULL, 2430);
 COMMIT;
-*/

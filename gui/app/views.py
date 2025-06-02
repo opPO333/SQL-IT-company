@@ -1,7 +1,9 @@
 from flask import render_template
 from flask_appbuilder.models.sqla.interface import SQLAInterface
 from flask_appbuilder import ModelView, ModelRestApi
-from .models import employees, departments
+from .models import Employee, Department, Team
+import json
+import datetime
 
 from . import appbuilder, db
 
@@ -47,11 +49,20 @@ def page_not_found(e):
         404,
     )
 class EmployeeView(ModelView):
-    datamodel = SQLAInterface(employees)
+    datamodel = SQLAInterface(Employee)
     list_columns = ['first_name', 'last_name']
 class DepartmentView(ModelView):
-    datamodel = SQLAInterface(departments)
+    datamodel = SQLAInterface(Department)
     list_columns = ['name']
+    related_views = [EmployeeView]
+    show_template = "appbuilder/general/model/show_cascade.html"
+
+class TeamView(ModelView):
+    datamodel = SQLAInterface(Team)
+    related_views = [EmployeeView]
+    list_columns = ['name']
+    show_template = "appbuilder/general/model/show_cascade.html"
+
 
 appbuilder.add_view(
     EmployeeView,
@@ -65,5 +76,12 @@ appbuilder.add_view(
     , icon="fa-building",
     category="Company",
     category_icon='fa-building')
+appbuilder.add_view(
+    TeamView,
+    "Teams"
+    , icon="fa-building",
+    category="Company",
+    category_icon='fa-building'
+)
 
 db.create_all()
