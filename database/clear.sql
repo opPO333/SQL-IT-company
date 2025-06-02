@@ -1,6 +1,8 @@
 DROP TYPE IF EXISTS equipment_type CASCADE;
 DROP TYPE IF EXISTS equipment_status CASCADE;
 
+DROP VIEW IF EXISTS employees_view;
+
 DROP TRIGGER IF EXISTS pesel_check ON employees CASCADE;
 DROP FUNCTION IF EXISTS pesel_check CASCADE;
 
