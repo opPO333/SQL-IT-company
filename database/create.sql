@@ -423,15 +423,22 @@ CREATE OR REPLACE FUNCTION check_and_close_position() RETURNS TRIGGER AS
 $$
 BEGIN
     IF EXISTS (SELECT 1
-               FROM employee_positions_history
-               WHERE employee_id = NEW.employee_id
-                 AND NOT (
-                   COALESCE(NEW.end_date, DATE '9999-12-31') < start_date OR
-                   NEW.start_date > COALESCE(end_date, DATE '9999-12-31')
-                   )) THEN
+               FROM employee_positions_history eph
+               WHERE eph.employee_id = NEW.employee_id
+                 AND GREATEST(NEW.start_date, eph.start_date) < LEAST(
+                       COALESCE(NEW.end_date, DATE '9999-12-31'),
+                       COALESCE(eph.end_date, CURRENT_DATE)
+                                                                )) THEN
         RAISE EXCEPTION 'Overlapping position period for employee %', NEW.employee_id;
     END IF;
 
+    IF NEW.end_date IS NULL THEN
+        UPDATE employee_positions_history
+        SET end_date = NEW.start_date
+        WHERE employee_id = NEW.employee_id
+          AND end_date IS NULL
+          AND start_date < NEW.start_date;
+    END IF;
 
     RETURN NEW;
 END;
@@ -443,28 +450,6 @@ CREATE TRIGGER check_and_close_position
     FOR EACH ROW
 EXECUTE FUNCTION check_and_close_position();
 
-
-------------------------------------------------------------------------
-
-CREATE OR REPLACE FUNCTION check_single_active_position() RETURNS TRIGGER AS
-$$
-BEGIN
-    IF NEW.end_date IS NULL THEN
-        IF EXISTS (SELECT 1
-                   FROM employee_positions_history eph
-                   WHERE eph.employee_id = NEW.employee_id AND eph.end_date IS NULL) THEN
-            RAISE EXCEPTION 'Employee already has an active position';
-        END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER check_single_active_position
-    BEFORE INSERT OR UPDATE
-    ON employee_positions_history
-    FOR EACH ROW
-EXECUTE FUNCTION check_single_active_position();
 
 ------------------------------------------------------------------------
 
