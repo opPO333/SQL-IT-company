@@ -247,7 +247,7 @@ CREATE TABLE equipment_status_history
     equipment_id INTEGER REFERENCES equipment (id) ON DELETE RESTRICT NOT NULL,
     status       equipment_status DEFAULT 'in_stock'                  NOT NULL,
     start_date   DATE                                                 NOT NULL,
-    end_date     DATE DEFAULT NULL,
+    end_date     DATE             DEFAULT NULL,
 
     CHECK (end_date IS NULL OR start_date <= end_date)
 );
@@ -263,14 +263,13 @@ CREATE TABLE employee_equipment_history
 );
 
 CREATE OR REPLACE VIEW employees_view AS
-SELECT
-    e.id,
-    e.first_name,
-    e.last_name,
-    e.pesel,
-    edh.department_name,
-    edh.department_start_date,
-    eth.team_id
+SELECT e.id,
+       e.first_name,
+       e.last_name,
+       e.pesel,
+       edh.department_name,
+       edh.department_start_date,
+       eth.team_id
 FROM employees e
          JOIN employee_departments_history edh
               ON e.id = edh.employee_id
@@ -278,29 +277,18 @@ FROM employees e
          JOIN employee_teams_history eth on e.id = eth.employee_id;
 
 CREATE OR REPLACE VIEW departments_view AS
-SELECT d.*, concat(e.first_name, ' ', e.last_name) as head_name FROM departments d
-                                                                         LEFT JOIN head_departments_history hdh
-                                                                                   ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date
-                                                                         LEFT JOIN employees e on hdh.head_id = e.id
+SELECT d.*, concat(e.first_name, ' ', e.last_name) as head_name
+FROM departments d
+         LEFT JOIN head_departments_history hdh
+                   ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date
+         LEFT JOIN employees e on hdh.head_id = e.id
 WHERE d.end_date IS NULL;
 
 CREATE OR REPLACE VIEW teams_view AS
 SELECT t.id, t.start_date, p.title as project_title
-FROM teams t LEFT JOIN projects p on p.title = t.project_title
+FROM teams t
+         LEFT JOIN projects p on p.title = t.project_title
 WHERE t.end_date IS NULL;
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 ------------------------------------------------------------------------
@@ -392,10 +380,7 @@ create trigger pesel_check
 execute function pesel_check();
 
 
-
 ------------------------------------------------------------------------
-
-
 
 
 CREATE OR REPLACE FUNCTION employee_name_change() RETURNS TRIGGER AS
@@ -431,9 +416,7 @@ CREATE TRIGGER employee_name_change
 EXECUTE FUNCTION employee_name_change();
 
 
-
 ------------------------------------------------------------------------
-
 
 
 CREATE OR REPLACE FUNCTION check_and_close_position() RETURNS TRIGGER AS
@@ -448,7 +431,6 @@ BEGIN
                    )) THEN
         RAISE EXCEPTION 'Overlapping position period for employee %', NEW.employee_id;
     END IF;
-
 
 
     RETURN NEW;
@@ -470,9 +452,7 @@ BEGIN
     IF NEW.end_date IS NULL THEN
         IF EXISTS (SELECT 1
                    FROM employee_positions_history eph
-                   WHERE eph.employee_id = NEW.employee_id
-                     AND eph.end_date IS NULL
-                     AND eph.position <> NEW.position) THEN
+                   WHERE eph.employee_id = NEW.employee_id AND eph.end_date IS NULL) THEN
             RAISE EXCEPTION 'Employee already has an active position';
         END IF;
     END IF;
@@ -490,12 +470,13 @@ EXECUTE FUNCTION check_single_active_position();
 
 
 CREATE OR REPLACE FUNCTION check_employee_inserted_correctly()
-    RETURNS trigger AS $$
+    RETURNS trigger AS
+$$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM employee_positions_history
-        WHERE employee_id = NEW.id AND end_date IS NULL
-    ) THEN
+    IF NOT EXISTS (SELECT 1
+                   FROM employee_positions_history
+                   WHERE employee_id = NEW.id
+                     AND end_date IS NULL) THEN
         RAISE EXCEPTION 'Employee must have a current position';
     END IF;
     RETURN NULL;
@@ -527,34 +508,25 @@ CREATE OR REPLACE FUNCTION add_employee(
     _department_name VARCHAR(50) DEFAULT NULL,
     _department_start_date DATE DEFAULT NULL,
     _department_assign_start DATE DEFAULT CURRENT_DATE
-) RETURNS VOID AS $$
+) RETURNS VOID AS
+$$
 DECLARE
     _employee_id INTEGER;
 BEGIN
-    INSERT INTO employees (
-        first_name, last_name, second_name, gender,
-        phone, email, passport, pesel,
-        address_id, correspondence_address_id, birth_date
-    )
-    VALUES (
-               _first_name, _last_name, _second_name, _gender,
-               _phone, _email, _passport, _pesel,
-               _address_id, _correspondence_address_id, _birth_date
-           )
+    INSERT INTO employees (first_name, last_name, second_name, gender,
+                           phone, email, passport, pesel,
+                           address_id, correspondence_address_id, birth_date)
+    VALUES (_first_name, _last_name, _second_name, _gender,
+            _phone, _email, _passport, _pesel,
+            _address_id, _correspondence_address_id, _birth_date)
     RETURNING id INTO _employee_id;
 
-    INSERT INTO employee_positions_history (
-        employee_id, position, start_date
-    ) VALUES (
-                 _employee_id, _position, _position_start_date
-             );
+    INSERT INTO employee_positions_history (employee_id, position, start_date)
+    VALUES (_employee_id, _position, _position_start_date);
 
     IF _team_id IS NOT NULL THEN
-        INSERT INTO employee_teams_history (
-            employee_id, team_id, join_ts
-        ) VALUES (
-                     _employee_id, _team_id, _team_start_date
-                 );
+        INSERT INTO employee_teams_history (employee_id, team_id, join_ts)
+        VALUES (_employee_id, _team_id, _team_start_date);
     END IF;
 
     IF (_department_name IS NULL AND _department_start_date IS NOT NULL) OR
@@ -562,18 +534,14 @@ BEGIN
         RAISE EXCEPTION '_department_name is "%" and _department_start_date is "%", should be 2 or 0 nulls', _department_name, _department_start_date;
     END IF;
     IF _department_name IS NOT NULL AND _department_start_date IS NOT NULL THEN
-        INSERT INTO employee_departments_history (
-            employee_id, department_name, department_start_date, start_date
-        ) VALUES (
-                     _employee_id, _department_name, _department_start_date, _department_assign_start
-                 );
+        INSERT INTO employee_departments_history (employee_id, department_name, department_start_date, start_date)
+        VALUES (_employee_id, _department_name, _department_start_date, _department_assign_start);
     END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 
 ------------------------------------------------------------------------
-
 
 
 CREATE OR REPLACE FUNCTION check_departments_consistency()
@@ -611,17 +579,15 @@ CREATE TRIGGER departments_consistency_trigger
 EXECUTE FUNCTION check_departments_consistency();
 
 
-
 -----------------------------------------------
-
 
 
 CREATE OR REPLACE FUNCTION create_full_address(
     p_country_name VARCHAR,
-    p_region_name  VARCHAR,
-    p_city_name    VARCHAR,
-    p_house       VARCHAR,
-    p_street      VARCHAR DEFAULT NULL,
+    p_region_name VARCHAR,
+    p_city_name VARCHAR,
+    p_house VARCHAR,
+    p_street VARCHAR DEFAULT NULL,
     p_postal_code VARCHAR DEFAULT NULL
 ) RETURNS INTEGER AS
 $$
@@ -636,8 +602,11 @@ BEGIN
     ON CONFLICT (name) DO NOTHING;
     v_country_name = p_country_name;
 
-    SELECT id INTO v_region_id FROM regions
-    WHERE country_name = v_country_name AND name = p_region_name;
+    SELECT id
+    INTO v_region_id
+    FROM regions
+    WHERE country_name = v_country_name
+      AND name = p_region_name;
 
     IF v_region_id IS NULL THEN
         INSERT INTO regions(country_name, name)
@@ -645,8 +614,11 @@ BEGIN
         RETURNING id INTO v_region_id;
     END IF;
 
-    SELECT id INTO v_city_id FROM cities
-    WHERE region_id = v_region_id AND name = p_city_name;
+    SELECT id
+    INTO v_city_id
+    FROM cities
+    WHERE region_id = v_region_id
+      AND name = p_city_name;
 
     IF v_city_id IS NULL THEN
         INSERT INTO cities(region_id, name)
@@ -654,7 +626,9 @@ BEGIN
         RETURNING id INTO v_city_id;
     END IF;
 
-    SELECT id INTO v_address_id FROM addresses
+    SELECT id
+    INTO v_address_id
+    FROM addresses
     WHERE postal_code = p_postal_code
       AND COALESCE(street, '') = COALESCE(p_street, '')
       AND house = p_house
@@ -671,28 +645,28 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
 ----------------------------------------------------------
 
 
 CREATE OR REPLACE FUNCTION check_unique_active_head()
-    RETURNS TRIGGER AS $$
+    RETURNS TRIGGER AS
+$$
 BEGIN
     IF NEW.end_date IS NULL THEN
         IF TG_OP = 'INSERT' THEN
-            IF EXISTS (
-                SELECT 1 FROM head_departments_history
-                WHERE department_name = NEW.department_name AND end_date IS NULL
-            ) THEN
+            IF EXISTS (SELECT 1
+                       FROM head_departments_history
+                       WHERE department_name = NEW.department_name
+                         AND end_date IS NULL) THEN
                 RAISE EXCEPTION 'Active head already exists for department %', NEW.department_name;
             END IF;
         ELSIF TG_OP = 'UPDATE' THEN
             IF (NEW.head_id, NEW.start_date) != (OLD.head_id, OLD.start_date) THEN
-                IF EXISTS (
-                    SELECT 1 FROM head_departments_history
-                    WHERE department_name = NEW.department_name AND end_date IS NULL
-                      AND (head_id, start_date) != (OLD.head_id, OLD.start_date)
-                ) THEN
+                IF EXISTS (SELECT 1
+                           FROM head_departments_history
+                           WHERE department_name = NEW.department_name
+                             AND end_date IS NULL
+                             AND (head_id, start_date) != (OLD.head_id, OLD.start_date)) THEN
                     RAISE EXCEPTION 'Active head already exists for department %', NEW.department_name;
                 END IF;
             END IF;
@@ -705,27 +679,27 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE TRIGGER trg_check_unique_active_head
-    BEFORE INSERT OR UPDATE ON head_departments_history
+    BEFORE INSERT OR UPDATE
+    ON head_departments_history
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_head();
-
 
 
 --------------------------------------------------------------------
 
 
 CREATE OR REPLACE FUNCTION check_unique_active_position()
-    RETURNS TRIGGER AS $$
+    RETURNS TRIGGER AS
+$$
 BEGIN
     IF NEW.end_date IS NULL THEN
         IF TG_OP = 'INSERT'
             OR (TG_OP = 'UPDATE' AND (NEW.employee_id, NEW.start_date) != (OLD.employee_id, OLD.start_date)) THEN
-            IF EXISTS (
-                SELECT 1 FROM employee_positions_history
-                WHERE employee_id = NEW.employee_id
-                  AND end_date IS NULL
-                  AND (TG_OP = 'INSERT' OR (employee_id, start_date) != (OLD.employee_id, OLD.start_date))
-            ) THEN
+            IF EXISTS (SELECT 1
+                       FROM employee_positions_history
+                       WHERE employee_id = NEW.employee_id
+                         AND end_date IS NULL
+                         AND (TG_OP = 'INSERT' OR (employee_id, start_date) != (OLD.employee_id, OLD.start_date))) THEN
                 RAISE EXCEPTION 'Employee % already has an active position record', NEW.employee_id;
             END IF;
         END IF;
@@ -744,25 +718,26 @@ EXECUTE FUNCTION check_unique_active_position();
 
 
 CREATE OR REPLACE FUNCTION check_unique_active_department()
-    RETURNS TRIGGER AS $$
+    RETURNS TRIGGER AS
+$$
 BEGIN
     IF NEW.end_date IS NULL THEN
         IF TG_OP = 'INSERT' THEN
-            IF EXISTS (
-                SELECT 1 FROM employee_departments_history
-                WHERE employee_id = NEW.employee_id AND end_date IS NULL
-            ) THEN
+            IF EXISTS (SELECT 1
+                       FROM employee_departments_history
+                       WHERE employee_id = NEW.employee_id
+                         AND end_date IS NULL) THEN
                 RAISE EXCEPTION 'Employee % already assigned to an active department', NEW.employee_id;
             END IF;
         ELSIF TG_OP = 'UPDATE' THEN
             IF (NEW.department_name, NEW.department_start_date, NEW.start_date) !=
                (OLD.department_name, OLD.department_start_date, OLD.start_date) THEN
-                IF EXISTS (
-                    SELECT 1 FROM employee_departments_history
-                    WHERE employee_id = NEW.employee_id AND end_date IS NULL
-                      AND (department_name, department_start_date, start_date) !=
-                          (OLD.department_name, OLD.department_start_date, OLD.start_date)
-                ) THEN
+                IF EXISTS (SELECT 1
+                           FROM employee_departments_history
+                           WHERE employee_id = NEW.employee_id
+                             AND end_date IS NULL
+                             AND (department_name, department_start_date, start_date) !=
+                                 (OLD.department_name, OLD.department_start_date, OLD.start_date)) THEN
                     RAISE EXCEPTION 'Employee % already assigned to an active department', NEW.employee_id;
                 END IF;
             END IF;
@@ -783,17 +758,17 @@ EXECUTE FUNCTION check_unique_active_department();
 
 
 CREATE OR REPLACE FUNCTION check_unique_active_team()
-    RETURNS TRIGGER AS $$
+    RETURNS TRIGGER AS
+$$
 BEGIN
     IF NEW.leave_ts IS NULL THEN
         IF TG_OP = 'INSERT'
             OR (TG_OP = 'UPDATE' AND (NEW.employee_id, NEW.join_ts) != (OLD.employee_id, OLD.join_ts)) THEN
-            IF EXISTS (
-                SELECT 1 FROM employee_teams_history
-                WHERE employee_id = NEW.employee_id
-                  AND leave_ts IS NULL
-                  AND (TG_OP = 'INSERT' OR (employee_id, join_ts) != (OLD.employee_id, OLD.join_ts))
-            ) THEN
+            IF EXISTS (SELECT 1
+                       FROM employee_teams_history
+                       WHERE employee_id = NEW.employee_id
+                         AND leave_ts IS NULL
+                         AND (TG_OP = 'INSERT' OR (employee_id, join_ts) != (OLD.employee_id, OLD.join_ts))) THEN
                 RAISE EXCEPTION 'Employee % already has an active team assignment', NEW.employee_id;
             END IF;
         END IF;
@@ -803,7 +778,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_check_unique_active_team
-    BEFORE INSERT OR UPDATE ON employee_teams_history
+    BEFORE INSERT OR UPDATE
+    ON employee_teams_history
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_team();
 
@@ -812,21 +788,21 @@ EXECUTE FUNCTION check_unique_active_team();
 
 
 CREATE OR REPLACE FUNCTION check_unique_active_vacation()
-    RETURNS TRIGGER AS $$
+    RETURNS TRIGGER AS
+$$
 BEGIN
     IF NEW.status IN ('requested', 'approved') THEN
         IF TG_OP = 'INSERT'
             OR (TG_OP = 'UPDATE' AND NEW.id != OLD.id) THEN
-            IF EXISTS (
-                SELECT 1 FROM vacations
-                WHERE employee_id = NEW.employee_id
-                  AND status IN ('requested', 'approved')
-                  AND (
-                    daterange(start_date, end_date, '[]') &&
-                    daterange(NEW.start_date, NEW.end_date, '[]')
-                    )
-                  AND (TG_OP = 'INSERT' OR id != OLD.id)
-            ) THEN
+            IF EXISTS (SELECT 1
+                       FROM vacations
+                       WHERE employee_id = NEW.employee_id
+                         AND status IN ('requested', 'approved')
+                         AND (
+                           daterange(start_date, end_date, '[]') &&
+                           daterange(NEW.start_date, NEW.end_date, '[]')
+                           )
+                         AND (TG_OP = 'INSERT' OR id != OLD.id)) THEN
                 RAISE EXCEPTION 'Employee % already has an active vacation overlapping [% - %]',
                     NEW.employee_id, NEW.start_date, NEW.end_date;
             END IF;
@@ -837,7 +813,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_check_unique_active_vacation
-    BEFORE INSERT OR UPDATE ON vacations
+    BEFORE INSERT OR UPDATE
+    ON vacations
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_vacation();
 
