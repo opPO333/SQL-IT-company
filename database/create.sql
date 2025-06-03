@@ -469,8 +469,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE CONSTRAINT TRIGGER trg_check_employee_position
-    AFTER INSERT
-    ON employees
+    AFTER INSERT ON employees
     DEFERRABLE INITIALLY DEFERRED
     FOR EACH ROW
 EXECUTE FUNCTION check_employee_inserted_correctly();
@@ -560,8 +559,7 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE TRIGGER departments_consistency_trigger
-    BEFORE INSERT OR UPDATE
-    ON departments
+    BEFORE INSERT OR UPDATE ON departments
     FOR EACH ROW
 EXECUTE FUNCTION check_departments_consistency();
 
@@ -696,8 +694,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_check_unique_active_position
-    BEFORE INSERT OR UPDATE
-    ON employee_positions_history
+    BEFORE INSERT OR UPDATE ON employee_positions_history
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_position();
 
@@ -737,8 +734,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_check_unique_active_department
-    BEFORE INSERT OR UPDATE
-    ON employee_departments_history
+    BEFORE INSERT OR UPDATE ON employee_departments_history
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_department();
 
