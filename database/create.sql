@@ -551,7 +551,7 @@ BEGIN
 
     IF _team_id IS NOT NULL THEN
         INSERT INTO employee_teams_history (
-            employee_id, _team_id, start_date
+            employee_id, team_id, join_ts
         ) VALUES (
                      _employee_id, _team_id, _team_start_date
                  );
