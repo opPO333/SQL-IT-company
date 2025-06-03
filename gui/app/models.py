@@ -25,7 +25,6 @@ departments_table = Table('departments_view', metadata,
 
 teams_table = Table('teams_view', metadata,
                     Column('id', String, primary_key=True),
-                    Column('name', String),
                     Column('project_title', String),
                     )
 

@@ -59,8 +59,8 @@ class DepartmentView(ModelView):
 
 class TeamView(ModelView):
     datamodel = SQLAInterface(Team)
+    list_columns = ['id']
     related_views = [EmployeeView]
-    list_columns = ['name']
     show_template = "appbuilder/general/model/show_cascade.html"
 
 

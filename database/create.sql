@@ -253,9 +253,9 @@ CREATE TABLE equipment
 
 CREATE TABLE equipment_status_history
 (
-    equipment_id INTEGER REFERENCES equipment (id) ON DELETE RESTRICT NOT NULL,
-    status       equipment_status DEFAULT 'in_stock'                  NOT NULL,
-    start_date   DATE                                                 NOT NULL,
+    equipment_id INTEGER REFERENCES equipment (id)   NOT NULL,
+    status       equipment_status DEFAULT 'in_stock' NOT NULL,
+    start_date   DATE                                NOT NULL,
     end_date     DATE,
 
     CHECK (end_date IS NULL OR start_date <= end_date)
@@ -263,41 +263,13 @@ CREATE TABLE equipment_status_history
 
 CREATE TABLE employee_equipment_history
 (
-    employee_id  INTEGER REFERENCES employees (id) ON DELETE RESTRICT NOT NULL,
-    equipment_id INTEGER REFERENCES equipment (id) ON DELETE RESTRICT NOT NULL,
-    start_date   DATE                                                 NOT NULL,
+    employee_id  INTEGER REFERENCES employees (id) NOT NULL,
+    equipment_id INTEGER REFERENCES equipment (id) NOT NULL,
+    start_date   DATE                              NOT NULL,
     end_date     DATE,
 
     CHECK (end_date IS NULL OR start_date <= end_date)
 );
-
-  CREATE OR REPLACE VIEW employees_view AS
-  SELECT
-    e.id,
-    e.first_name,
-    e.last_name,
-    e.pesel,
-    edh.department_name,
-    edh.department_start_date,
-    eth.team_id
-  FROM employees e
-  JOIN employee_departments_history edh
-    ON e.id = edh.employee_id
-   AND edh.end_date IS NULL
-  JOIN employee_teams_history eth on e.id = eth.employee_id;
-
-CREATE OR REPLACE VIEW departments_view AS
-SELECT d.*, concat(e.first_name, ' ', e.last_name) as head_name FROM departments d
-LEFT JOIN head_departments_history hdh
-    ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date
-LEFT JOIN employees e on hdh.head_id = e.id
-WHERE d.end_date IS NULL;
-
-CREATE OR REPLACE VIEW teams_view AS
-    SELECT t.id, t.name, t.start_date, p.title as project_title
-    FROM teams t LEFT JOIN projects p on p.id = t.project_id
-    WHERE t.end_date IS NULL;
-
 
 create or replace function pesel_check() returns trigger as
 $$
@@ -384,6 +356,36 @@ create trigger pesel_check
     on employees
     for each row
 execute function pesel_check();
+
+
+
+  CREATE VIEW employees_view AS
+  SELECT
+    e.id,
+    e.first_name,
+    e.last_name,
+    e.pesel,
+    edh.department_name,
+    edh.department_start_date,
+    eth.team_id
+  FROM employees e
+  JOIN employee_departments_history edh
+    ON e.id = edh.employee_id
+   AND edh.end_date IS NULL
+  JOIN employee_teams_history eth on e.id = eth.employee_id;
+
+CREATE VIEW departments_view AS
+SELECT d.*, concat(e.first_name, ' ', e.last_name) as head_name FROM departments d
+LEFT JOIN head_departments_history hdh
+    ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date
+LEFT JOIN employees e on hdh.head_id = e.id
+WHERE d.end_date IS NULL;
+
+CREATE VIEW teams_view AS
+    SELECT t.id, t.start_date, p.title as project_title
+    FROM teams t LEFT JOIN projects p on t.project_title = p.title
+    WHERE t.end_date IS NULL;
+
 
 
 /*
