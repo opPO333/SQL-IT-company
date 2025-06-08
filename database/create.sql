@@ -722,26 +722,32 @@ CREATE OR REPLACE FUNCTION check_unique_active_position()
 $$
 BEGIN
     IF NEW.end_date IS NULL THEN
-        IF TG_OP = 'INSERT'
-            OR (TG_OP = 'UPDATE' AND (NEW.employee_id, NEW.start_date) != (OLD.employee_id, OLD.start_date)) THEN
-            IF EXISTS (SELECT 1
-                       FROM employee_positions_history
-                       WHERE employee_id = NEW.employee_id
-                         AND end_date IS NULL
-                         AND (TG_OP = 'INSERT' OR (employee_id, start_date) != (OLD.employee_id, OLD.start_date))) THEN
+        IF TG_OP = 'INSERT' THEN
+            IF EXISTS (
+                SELECT 1 FROM employee_positions_history
+                WHERE employee_id = NEW.employee_id
+                  AND end_date IS NULL
+            ) THEN
                 RAISE EXCEPTION 'Employee % already has an active position record', NEW.employee_id;
+            END IF;
+
+        ELSIF TG_OP = 'UPDATE' THEN
+            IF (NEW.employee_id, NEW.start_date) != (OLD.employee_id, OLD.start_date) THEN
+                IF EXISTS (
+                    SELECT 1 FROM employee_positions_history
+                    WHERE employee_id = NEW.employee_id
+                      AND end_date IS NULL
+                      AND (employee_id, start_date) != (OLD.employee_id, OLD.start_date)
+                ) THEN
+                    RAISE EXCEPTION 'Employee % already has an active position record', NEW.employee_id;
+                END IF;
             END IF;
         END IF;
     END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_check_unique_active_position
-    BEFORE INSERT OR UPDATE
-    ON employee_positions_history
-    FOR EACH ROW
-EXECUTE FUNCTION check_unique_active_position();
 
 
 --------------------------------------------------------------------
@@ -793,14 +799,23 @@ CREATE OR REPLACE FUNCTION check_unique_active_team()
 $$
 BEGIN
     IF NEW.leave_ts IS NULL THEN
-        IF TG_OP = 'INSERT'
-            OR (TG_OP = 'UPDATE' AND (NEW.employee_id, NEW.join_ts) != (OLD.employee_id, OLD.join_ts)) THEN
+        IF TG_OP = 'INSERT' THEN
             IF EXISTS (SELECT 1
                        FROM employee_teams_history
                        WHERE employee_id = NEW.employee_id
-                         AND leave_ts IS NULL
-                         AND (TG_OP = 'INSERT' OR (employee_id, join_ts) != (OLD.employee_id, OLD.join_ts))) THEN
+                         AND leave_ts IS NULL) THEN
                 RAISE EXCEPTION 'Employee % already has an active team assignment', NEW.employee_id;
+            END IF;
+
+        ELSIF TG_OP = 'UPDATE' THEN
+            IF (NEW.employee_id, NEW.join_ts) != (OLD.employee_id, OLD.join_ts) THEN
+                IF EXISTS (SELECT 1
+                           FROM employee_teams_history
+                           WHERE employee_id = NEW.employee_id
+                             AND leave_ts IS NULL
+                             AND NOT (employee_id = OLD.employee_id AND join_ts = OLD.join_ts)) THEN
+                    RAISE EXCEPTION 'Employee % already has an active team assignment', NEW.employee_id;
+                END IF;
             END IF;
         END IF;
     END IF;
@@ -823,22 +838,33 @@ CREATE OR REPLACE FUNCTION check_unique_active_vacation()
 $$
 BEGIN
     IF NEW.status IN ('requested', 'approved') THEN
-        IF TG_OP = 'INSERT'
-            OR (TG_OP = 'UPDATE' AND NEW.id != OLD.id) THEN
-            IF EXISTS (SELECT 1
-                       FROM vacations
-                       WHERE employee_id = NEW.employee_id
-                         AND status IN ('requested', 'approved')
-                         AND (
-                           daterange(start_date, end_date, '[]') &&
-                           daterange(NEW.start_date, NEW.end_date, '[]')
-                           )
-                         AND (TG_OP = 'INSERT' OR id != OLD.id)) THEN
+        IF TG_OP = 'INSERT' THEN
+            IF EXISTS (
+                SELECT 1 FROM vacations
+                WHERE employee_id = NEW.employee_id
+                  AND status IN ('requested', 'approved')
+                  AND daterange(start_date, end_date, '[]') &&
+                      daterange(NEW.start_date, NEW.end_date, '[]')
+            ) THEN
+                RAISE EXCEPTION 'Employee % already has an active vacation overlapping [% - %]',
+                    NEW.employee_id, NEW.start_date, NEW.end_date;
+            END IF;
+
+        ELSIF TG_OP = 'UPDATE' THEN
+            IF EXISTS (
+                SELECT 1 FROM vacations
+                WHERE employee_id = NEW.employee_id
+                  AND status IN ('requested', 'approved')
+                  AND daterange(start_date, end_date, '[]') &&
+                      daterange(NEW.start_date, NEW.end_date, '[]')
+                  AND id != NEW.id
+            ) THEN
                 RAISE EXCEPTION 'Employee % already has an active vacation overlapping [% - %]',
                     NEW.employee_id, NEW.start_date, NEW.end_date;
             END IF;
         END IF;
     END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
