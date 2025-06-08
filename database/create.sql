@@ -399,7 +399,10 @@ execute function pesel_check();
     eth.team_id,
     p.position as position_name,
     e.correspondence_address_id,
-    es.salary
+    es.salary,
+    ca.street as correspondence_street,
+    ca.house as correspondence_house,
+    ca.city_id as correspondence_city_id
   FROM employees e
   JOIN employee_departments_history edh
     ON e.id = edh.employee_id
@@ -407,7 +410,8 @@ execute function pesel_check();
   JOIN employee_teams_history eth on e.id = eth.employee_id
   JOIN employee_positions_history eph on e.id = eph.employee_id and eph.end_date IS NULL
   JOIN positions p on eph.position = p.position
-  JOIN employer_salary es on e.id = es.employee_id AND es.end_date IS NULL;
+  JOIN employer_salary es on e.id = es.employee_id AND es.end_date IS NULL
+  JOIN addresses ca on e.correspondence_address_id = ca.id;
 
 
 CREATE VIEW departments_view AS
@@ -950,7 +954,19 @@ BEGIN
       OLD.id, NEW.position_name, now_ts
     );
   END IF;
+  -- 6. Salary history
+  IF NEW.salary IS NOT NULL AND NEW.salary <> OLD.salary THEN
+      UPDATE employer_salary
+        SET end_date = CURRENT_DATE
+        WHERE employee_id = OLD.id
+      AND end_date IS NULL;
 
+      INSERT INTO employer_salary(
+        employee_id, salary, start_date, end_date
+      ) VALUES (
+        OLD.id, NEW.salary, CURRENT_DATE, NULL
+     );
+  end if;
   RETURN NEW;
 END;
 $$;
@@ -983,6 +999,11 @@ BEGIN
     SET leave_ts = CURRENT_TIMESTAMP
     WHERE employee_id = OLD.id
       AND leave_ts IS NULL;
+
+    UPDATE employer_salary
+        SET end_date = CURRENT_DATE
+            WHERE employee_id = OLD.id
+        AND end_date IS NULL;
 
     RETURN OLD;
 END;

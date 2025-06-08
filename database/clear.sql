@@ -49,6 +49,8 @@ drop table if exists employee_schedule cascade;
 
 drop table if exists employer_salary cascade;
 
+drop table if exists employer_schedule cascade;
+
 drop table if exists schedule_exceptions cascade;
 
 drop table if exists schedule_exception_types cascade;

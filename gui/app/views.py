@@ -48,13 +48,36 @@ def page_not_found(e):
         ),
         404,
     )
+
+
+from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
+from wtforms import StringField
+from wtforms.validators import DataRequired
+
+
 class EmployeeView(ModelView):
     datamodel = SQLAInterface(Employee)
     list_columns = ['first_name', 'last_name']
-    show_columns = ['first_name', 'last_name', 'second_name', 'gender', 'phone', 'email',
-                    'pesel', 'passport', 'department', 'position', 'salary_per_hour', 'team']
-    edit_columns = ['first_name', 'last_name', 'second_name', 'gender', 'phone', 'email',
-                    'pesel', 'passport', 'department', 'position', 'salary_per_hour', 'team']
+
+    # Updated show columns to display nested attributes
+    show_columns = [
+        'first_name', 'last_name', 'second_name', 'gender', 'phone', 'email',
+        'pesel', 'passport', 'department', 'position', 'salary', 'team',
+        'correspondence_city',
+        'correspondence_street', 'correspondence_house'
+    ]
+
+
+
+    edit_columns =  ['first_name', 'last_name', 'second_name', 'gender', 'phone', 'email',
+        'pesel', 'passport', 'department', 'position', 'salary', 'team',
+        'correspondence_city',
+        'correspondence_street', 'correspondence_house'
+    ]
+
+
+
+    # Handle empty valuesd
     def _empty_to_none(self, item):
         for col in self.edit_columns:
             if getattr(item, col) == '':
@@ -106,6 +129,11 @@ class HeadDepartmentHistoryView(ModelView):
     base_permissions = ['can_list']
     list_columns = ['department', 'head', 'start_date', 'end_date']
 
+class SalaryHistoryView(ModelView):
+    datamodel = SQLAInterface(SalaryHistory)
+    base_permissions = ['can_list']
+    list_columns = ['employee', 'start_date', 'end_date', 'salary']
+
 appbuilder.add_view(
     EmployeeView,
     "Employees"
@@ -148,5 +176,11 @@ appbuilder.add_view(HeadDepartmentHistoryView,
                     "Head Department History",
                     icon="fa-building",
                     category="History" )
+
+appbuilder.add_view(SalaryHistoryView,
+                    "Salary History",
+                    icon="fa-money",
+                    category="History" )
+
 
 db.create_all()

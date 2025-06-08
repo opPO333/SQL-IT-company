@@ -28,9 +28,12 @@ employee_table = Table(
     Column('department_start_date', Date),
     Column('team_id', Integer),
     Column('position_name', String),
-    Column('salary_per_hour', String),
+    Column('salary', Integer),
     Column('correspondence_address_id', Integer),
     Column('birth_date', Date),
+    Column('correspondence_street', String),
+    Column('correspondence_house', String),
+    Column('correspondence_city_id', Integer),
 )
 departments_table = Table('departments_view', metadata,
                           Column('name', String, primary_key=True),
@@ -57,6 +60,12 @@ head_departments_history_table = Table('head_departments_history', metadata,
                                       autoload=True, autoload_with=db.engine )
 positions_table = Table('positions', metadata, autoload=True, autoload_with=db.engine)
 
+salary_history_table = Table('employer_salary', metadata, autoload=True, autoload_with=db.engine)
+
+cities_table = Table('cities', metadata, autoload=True, autoload_with=db.engine)
+regions_table = Table('regions', metadata, autoload=True, autoload_with=db.engine)
+countries_table = Table('countries', metadata, autoload=True, autoload_with=db.engine)
+
 class AllEmployees(db.Model):
     __table__ = all_employees_table
     def __repr__(self):
@@ -64,8 +73,35 @@ class AllEmployees(db.Model):
 
 class Employee(db.Model):
     __table__ = employee_table
+
     def __repr__(self):
         return f"{self.first_name} {self.last_name}"
+
+class Cities(db.Model):
+    __table__ = cities_table
+    employee = relationship(
+        Employee,
+        viewonly=True,
+        primaryjoin=and_(
+            cities_table.c.id == foreign(employee_table.c.correspondence_city_id),
+        ),
+        backref='correspondence_city'
+    )
+    def __repr__(self):
+        return f"{self.region}, {self.name}"
+
+class Regions(db.Model):
+    __table__ = regions_table
+    city = relationship(
+        Cities,
+        viewonly=True,
+        primaryjoin=and_(
+            regions_table.c.id == foreign(cities_table.c.region_id),
+        ),
+        backref='region'
+    )
+    def __repr__(self):
+        return f"{self.name}"
 
 class Position(db.Model):
     __table__ = positions_table
@@ -79,6 +115,17 @@ class Position(db.Model):
     )
     def __repr__(self):
         return f"{self.position}"
+
+class SalaryHistory(db.Model):
+    __table__ = salary_history_table
+    employee = relationship(
+        AllEmployees,
+        viewonly=True,
+        primaryjoin=and_(
+            salary_history_table.c.employee_id == foreign(all_employees_table.c.id),
+        ),
+        backref='salary_history'
+    )
 
 
 class Department(db.Model):
@@ -97,8 +144,7 @@ class Department(db.Model):
         viewonly=True,
         primaryjoin=and_(
             departments_table.c.head_id == foreign(employee_table.c.id),
-        ),
-        backref='head'
+        )
     )
     def __repr__(self):
         return f"{self.name}"
