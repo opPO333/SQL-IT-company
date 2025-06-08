@@ -875,6 +875,85 @@ CREATE TRIGGER trg_check_unique_active_vacation
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_vacation();
 
+CREATE OR REPLACE FUNCTION manage_equipment_status() RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.end_date IS NULL THEN
+        UPDATE equipment_status_history
+        SET end_date = NEW.start_date
+        WHERE equipment_id = NEW.equipment_id AND end_date IS NULL;
+
+        INSERT INTO equipment_status_history(equipment_id, status, start_date)
+        VALUES (NEW.equipment_id, 'assigned', NEW.start_date);
+
+    ELSIF OLD.end_date IS NULL AND NEW.end_date IS NOT NULL THEN
+        UPDATE equipment_status_history
+        SET end_date = NEW.end_date
+        WHERE equipment_id = NEW.equipment_id AND status = 'assigned' AND end_date IS NULL;
+
+        INSERT INTO equipment_status_history(equipment_id, status, start_date)
+        VALUES (NEW.equipment_id, 'in_stock', NEW.end_date);
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_manage_equipment_status
+AFTER INSERT OR UPDATE ON employee_equipment_history
+FOR EACH ROW EXECUTE FUNCTION manage_equipment_status();
+
+CREATE OR REPLACE FUNCTION check_vacation_self_approval() RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.approved_by IS NOT NULL AND NEW.employee_id = NEW.approved_by THEN
+        RAISE EXCEPTION 'Employee cannot approve their own vacation request.';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_vacation_self_approval
+BEFORE INSERT OR UPDATE ON vacations
+FOR EACH ROW EXECUTE FUNCTION check_vacation_self_approval();
+
+CREATE OR REPLACE FUNCTION fire_employee(eid INTEGER, fire_date DATE DEFAULT CURRENT_DATE)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE employee_positions_history
+    SET end_date = fire_date
+    WHERE employee_id = eid AND end_date IS NULL;
+
+    UPDATE employee_departments_history
+    SET end_date = fire_date
+    WHERE employee_id = eid AND end_date IS NULL;
+
+    UPDATE employee_salary
+    SET end_date = fire_date
+    WHERE employee_id = eid AND end_date IS NULL;
+
+    UPDATE employee_teams_history
+    SET leave_ts = fire_date::TIMESTAMP
+    WHERE employee_id = eid AND leave_ts IS NULL;
+
+    UPDATE employee_equipment_history
+    SET end_date = fire_date
+    WHERE employee_id = eid AND end_date IS NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_employee_salary_history(eid INTEGER)
+RETURNS TABLE (
+    salary INTEGER,
+    start_date DATE,
+    end_date DATE
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT es.salary, es.start_date, es.end_date
+    FROM employee_salary es
+    WHERE es.employee_id = eid
+    ORDER BY es.start_date DESC;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 1) A trigger‐wrapper that sees NEW, calls your routine, then returns NULL
 CREATE OR REPLACE FUNCTION employees_view_insert_tr()
     RETURNS trigger
@@ -937,6 +1016,32 @@ CREATE TRIGGER employee_insert
     FOR EACH ROW
 EXECUTE FUNCTION employees_view_insert_tr();
 
+CREATE OR REPLACE FUNCTION prevent_deleting_active_position() RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM employee_positions_history WHERE position = OLD.position AND end_date IS NULL) THEN
+        RAISE EXCEPTION 'Cannot delete position "%" because it is currently assigned to one or more employees.', OLD.position;
+    END IF;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_prevent_deleting_active_position
+BEFORE DELETE ON positions
+FOR EACH ROW EXECUTE FUNCTION prevent_deleting_active_position();
+
+CREATE OR REPLACE FUNCTION prevent_deleting_active_project() RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM teams WHERE project_title = OLD.title AND end_date IS NULL) THEN
+        RAISE EXCEPTION 'Cannot delete project "%" because it is assigned to one or more active teams.', OLD.title;
+    END IF;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_prevent_deleting_active_project
+BEFORE DELETE ON projects
+FOR EACH ROW EXECUTE FUNCTION prevent_deleting_active_project();
+
 -----------------------------------------------------
 
 CREATE OR REPLACE FUNCTION trg_employees_view_update()
@@ -988,16 +1093,6 @@ BEGIN
       , correspondence_address_id = v_correspondence_address_id
       , address_id = v_address_id
     WHERE id = OLD.id;
-
-    IF (NEW.first_name IS NOT NULL AND NEW.first_name <> OLD.first_name)
-        OR (NEW.second_name IS NOT NULL AND NEW.second_name <> OLD.second_name)
-        OR (NEW.last_name IS NOT NULL AND NEW.last_name <> OLD.last_name)
-    THEN
-        INSERT INTO employee_name_history(employee_id, first_name, second_name, last_name, start_ts)
-        VALUES (OLD.id,
-                NEW.first_name, NEW.second_name, NEW.last_name,
-                now_ts);
-    END IF;
 
     -- 3. Department‐change history
     IF (NEW.department_name IS NOT NULL AND NEW.department_name <> OLD.department_name)
