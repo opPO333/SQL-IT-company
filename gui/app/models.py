@@ -16,10 +16,10 @@ all_employees_table = Table(
 employee_table = Table(
     'employees_view', metadata,
     Column('id', Integer, primary_key=True),
-    Column('first_name', String),
-    Column('last_name', String),
+    Column('first_name', String, nullable=False),
+    Column('last_name', String, nullable=False),
     Column('second_name', String),
-    Column('gender', String(1)),
+    Column('gender', String(1), nullable=False),
     Column('phone', String),
     Column('email', String),
     Column('pesel', String),
@@ -27,13 +27,17 @@ employee_table = Table(
     Column('department_name', String),
     Column('department_start_date', Date),
     Column('team_id', Integer),
-    Column('position_name', String),
+    Column('position_name', String, nullable=False),
     Column('salary', Integer),
-    Column('correspondence_address_id', Integer),
-    Column('birth_date', Date),
-    Column('correspondence_street', String),
-    Column('correspondence_house', String),
-    Column('correspondence_city_id', Integer),
+    Column('birth_date', Date, nullable=False),
+    Column('correspondence_street', String, nullable=False),
+    Column('correspondence_house', String, nullable=False),
+    Column('correspondence_city_id', Integer, nullable=False),
+    Column('correspondence_postal_code', String, nullable=False),
+    Column('street', String),
+    Column('house', String),
+    Column('city_id', Integer),
+    Column('postal_code', String),
 )
 departments_table = Table('departments_view', metadata,
                           Column('name', String, primary_key=True),
@@ -79,14 +83,21 @@ class Employee(db.Model):
 
 class Cities(db.Model):
     __table__ = cities_table
-    employee = relationship(
+    correspondence_employee = relationship(
         Employee,
-        viewonly=True,
         primaryjoin=and_(
             cities_table.c.id == foreign(employee_table.c.correspondence_city_id),
         ),
         backref='correspondence_city'
     )
+    employee = relationship(
+        Employee,
+        primaryjoin=and_(
+            cities_table.c.id == foreign(employee_table.c.city_id),
+        ),
+        backref='city'
+    )
+
     def __repr__(self):
         return f"{self.region}, {self.name}"
 
@@ -94,11 +105,21 @@ class Regions(db.Model):
     __table__ = regions_table
     city = relationship(
         Cities,
-        viewonly=True,
         primaryjoin=and_(
             regions_table.c.id == foreign(cities_table.c.region_id),
         ),
         backref='region'
+    )
+    def __repr__(self):
+        return f"{self.country}, {self.name}"
+class Countries(db.Model):
+    __table__ = countries_table
+    region = relationship(
+        Regions,
+        primaryjoin=and_(
+            countries_table.c.name == foreign(regions_table.c.country_name),
+        ),
+        backref='country'
     )
     def __repr__(self):
         return f"{self.name}"
@@ -107,7 +128,6 @@ class Position(db.Model):
     __table__ = positions_table
     employees = relationship(
         Employee,
-        viewonly=True,
         primaryjoin=and_(
             positions_table.c.position == foreign(employee_table.c.position_name),
         ),
@@ -120,7 +140,6 @@ class SalaryHistory(db.Model):
     __table__ = salary_history_table
     employee = relationship(
         AllEmployees,
-        viewonly=True,
         primaryjoin=and_(
             salary_history_table.c.employee_id == foreign(all_employees_table.c.id),
         ),
@@ -133,7 +152,6 @@ class Department(db.Model):
 
     employees = relationship(
         Employee,
-        viewonly=True,
         primaryjoin=and_(
             departments_table.c.name == foreign(employee_table.c.department_name),
         ),
@@ -141,7 +159,6 @@ class Department(db.Model):
     )
     head = relationship(
         Employee,
-        viewonly=True,
         primaryjoin=and_(
             departments_table.c.head_id == foreign(employee_table.c.id),
         )
@@ -154,7 +171,6 @@ class EmployeeDepartmentHistory(db.Model):
 
     employee = relationship(
         AllEmployees,
-        viewonly=True,
         primaryjoin=and_(
             employees_departments_table.c.employee_id == foreign(all_employees_table.c.id),
         ),
@@ -162,7 +178,6 @@ class EmployeeDepartmentHistory(db.Model):
     )
     department = relationship(
         Department,
-        viewonly=True,
         primaryjoin=and_(
             employees_departments_table.c.department_name == foreign(departments_table.c.name),
         ),
@@ -173,7 +188,6 @@ class EmployeeNameHistory(db.Model):
     __table__ = employee_name_history_table
     employee = relationship(
         AllEmployees,
-        viewonly=True,
         primaryjoin=and_(
             employee_name_history_table.c.employee_id == foreign(all_employees_table.c.id),
         ),
@@ -184,7 +198,6 @@ class HeadDepartmentsHistory(db.Model):
     __table__ = head_departments_history_table
     head = relationship(
         AllEmployees,
-        viewonly=True,
         primaryjoin=and_(
             head_departments_history_table.c.head_id == foreign(all_employees_table.c.id),
         ),
@@ -193,7 +206,6 @@ class HeadDepartmentsHistory(db.Model):
 
     department = relationship(
         Department,
-        viewonly=True,
         primaryjoin=and_(
             head_departments_history_table.c.department_name == foreign(departments_table.c.name),
         ),
@@ -206,7 +218,6 @@ class Team(db.Model):
 
     employees = relationship(
         Employee,
-        viewonly=True,
         primaryjoin=and_(
             teams_table.c.id == foreign(employee_table.c.team_id),
         ),

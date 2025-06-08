@@ -20,7 +20,7 @@ def generate_employee_schedule_inserts(
         start_year_range (tuple): A tuple (start_year, end_year) for the possible
                                   start_date of schedules.
         max_schedule_duration_years (int): Maximum duration for a single schedule period
-                                          (before an end_date, if not NULL).
+                                           (before an end_date, if not NULL).
         max_shifts_per_employee (int): Maximum number of distinct schedule patterns
                                        (e.g., Mon-Fri 9-5, then another Tue-Thu 10-2)
                                        an employee might have over time.
@@ -196,10 +196,11 @@ def generate_employer_salary_inserts(
         first_day = random.randint(1, 28)  # To avoid issues with 31-day months
         current_salary_start_date = datetime.date(first_year, first_month, first_day)
 
-        # If the generated first_start_date is in the future, adjust it to be current or slightly future.
+        # Ensure the first start_date isn't in the distant future.
+        # It should be at most current_date + 30 days.
         if current_salary_start_date > current_date + datetime.timedelta(days=30):
             current_salary_start_date = current_date - datetime.timedelta(
-                days=random.randint(0, 365))  # Backdate slightly
+                days=random.randint(0, 365))  # Backdate slightly if too far future
 
         # Generate an initial salary
         current_salary = random.randint(salary_range[0] // 1000,
@@ -208,6 +209,8 @@ def generate_employer_salary_inserts(
         for i in range(num_salary_entries):
             salary_end_date_str = "NULL"  # Default to NULL (ongoing) for the current period
 
+            # Determine the end_date for the *current* salary entry
+            # and the start_date for the *next* one (if applicable).
             if i < num_salary_entries - 1:  # If this is not the last salary entry for the employee
                 # Calculate the start date for the *next* salary entry
                 # This helps determine the end date of the *current* salary entry
@@ -215,12 +218,13 @@ def generate_employer_salary_inserts(
                 next_salary_start_date_candidate = current_salary_start_date + datetime.timedelta(
                     days=next_start_offset_days)
 
-                # If the next salary would start significantly in the future,
-                # then this current salary is likely the latest or only planned one,
-                # so its end_date should be NULL and we stop generating further entries for this employee.
+                # Cap the end date of the current period if the next start date would be in the far future
                 if next_salary_start_date_candidate > current_date + datetime.timedelta(days=30):
+                    # If the next salary would start too far in the future,
+                    # this current salary is the latest effective one and should be ongoing (NULL).
+                    # We also stop generating further entries for this employee.
                     salary_end_date_str = "NULL"
-                    num_salary_entries = i + 1  # Short-circuit the loop by adjusting its effective end
+                    num_salary_entries = i + 1  # Effectively end the loop
                 else:
                     # The end date for the *current* salary period is one day before the next one starts
                     end_date_for_current_entry = next_salary_start_date_candidate - datetime.timedelta(days=1)
@@ -230,20 +234,31 @@ def generate_employer_salary_inserts(
                         end_date_for_current_entry = current_date
 
                     # CRITICAL: Ensure start_date <= end_date for the *current* row.
-                    # If current_salary_start_date is already in the future compared to end_date_for_current_entry
-                    # (e.g., if current_salary_start_date is tomorrow and end_date was capped to today),
-                    # then this period must be ongoing (NULL end_date).
                     if end_date_for_current_entry < current_salary_start_date:
+                        # This should ideally not happen with the controlled progression,
+                        # but as a safeguard, make it NULL if invalid.
                         salary_end_date_str = "NULL"
                     else:
                         salary_end_date_str = f"'{end_date_for_current_entry.isoformat()}'"
-
-            # If salary_end_date_str is still "NULL" (e.g., it's the genuine last entry, or forced last),
-            # check if its start_date is very old. If so, implicitly end it at current_date.
-            if salary_end_date_str == "NULL" and \
-                    current_date - current_salary_start_date > datetime.timedelta(
-                days=365 * 5):  # If start date is more than 5 years ago
-                salary_end_date_str = f"'{current_date.isoformat()}'"
+            else:
+                # If this is the last salary entry, it should generally be ongoing (NULL)
+                # unless its start_date is in the distant past (e.g., more than 5 years ago)
+                # AND it was randomly decided to have an end date to reflect historical data.
+                # If it's the last one, and starts in the past/present, it's typically ongoing.
+                if current_salary_start_date <= current_date and random.random() < 0.2:  # Small chance the very last one also ended
+                    end_date_obj = current_salary_start_date + datetime.timedelta(days=random.randint(30, 365))
+                    if end_date_obj > current_date:
+                        end_date_obj = current_date
+                    if end_date_obj >= current_salary_start_date:
+                        salary_end_date_str = f"'{end_date_obj.isoformat()}'"
+                    else:
+                        salary_end_date_str = "NULL"  # Fallback
+                elif current_salary_start_date > current_date:
+                    # If the *last* salary entry starts in the future, it must be ongoing.
+                    salary_end_date_str = "NULL"
+                else:
+                    # Default for a past/current last entry: ongoing
+                    salary_end_date_str = "NULL"
 
             insert_statement = (
                 f"INSERT INTO employer_salary (employee_id, salary, start_date, end_date) VALUES "
@@ -258,12 +273,12 @@ def generate_employer_salary_inserts(
                 # If the next start date is already significantly in the future, stop generating for this employee
                 if current_salary_start_date > current_date + datetime.timedelta(days=30):
                     break
-            else:  # If the last salary was ongoing (end_date NULL), no more future entries for this employee
+            else:  # If the current salary was ongoing (end_date NULL), no more future entries for this employee based on this path
                 break
 
             # Simulate a raise or change for the next period
-            current_salary = max(salary_range[0], min(salary_range[1], current_salary + random.randint(-5000,
-                                                                                                       15000)))  # +/- 5k to 15k change
+            # Ensure salary stays within the defined range
+            current_salary = max(salary_range[0], min(salary_range[1], current_salary + random.randint(-5000, 15000)))
             current_salary = (current_salary // 1000) * 1000  # Keep it rounded to nearest 1000
 
     sql_statements.append("COMMIT;")
@@ -272,11 +287,22 @@ def generate_employer_salary_inserts(
 
 # --- How to use the generator ---
 if __name__ == "__main__":
-    print("--Generating schedule entries for 1000 employees:")
-    inserts_for_1000_employees_schedule = generate_employee_schedule_inserts(num_employees=1000)
-    print(inserts_for_1000_employees_schedule)
+    # Example usage:
+    # Ensure your database is empty or can handle these inserts without constraint violations
+    # or consider using ON CONFLICT clauses if your database supports it and you intend to upsert.
+
+    print("--Generating schedule entries for 100 employees (example smaller set):")
+    inserts_for_100_employees_schedule = generate_employee_schedule_inserts(num_employees=100)
+    # print(inserts_for_100_employees_schedule)
+    with open("employee_schedule_inserts.sql", "w") as f:
+        f.write(inserts_for_100_employees_schedule)
+    print("Generated employee_schedule_inserts.sql")
+
     print("\n" + "=" * 50 + "\n")
 
-    print("--Generating salary entries for 1000 employees:")
-    inserts_for_1000_employees_salary = generate_employer_salary_inserts(num_employees=1000)
-    print(inserts_for_1000_employees_salary)
+    print("--Generating salary entries for 100 employees (example smaller set):")
+    inserts_for_100_employees_salary = generate_employer_salary_inserts(num_employees=100)
+    # print(inserts_for_100_employees_salary)
+    with open("employer_salary_inserts.sql", "w") as f:
+        f.write(inserts_for_100_employees_salary)
+    print("Generated employer_salary_inserts.sql")

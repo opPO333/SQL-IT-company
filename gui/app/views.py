@@ -64,18 +64,13 @@ class EmployeeView(ModelView):
         'first_name', 'last_name', 'second_name', 'gender', 'phone', 'email',
         'pesel', 'passport', 'department', 'position', 'salary', 'team',
         'correspondence_city',
-        'correspondence_street', 'correspondence_house'
+        'correspondence_street', 'correspondence_house',
+        'correspondence_postal_code',
+        'city',
+        'street', 'house', 'postal_code', 'birth_date'
     ]
 
-
-
-    edit_columns =  ['first_name', 'last_name', 'second_name', 'gender', 'phone', 'email',
-        'pesel', 'passport', 'department', 'position', 'salary', 'team',
-        'correspondence_city',
-        'correspondence_street', 'correspondence_house'
-    ]
-
-
+    add_columns = edit_columns = show_columns
 
     # Handle empty valuesd
     def _empty_to_none(self, item):

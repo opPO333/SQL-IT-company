@@ -387,20 +387,25 @@ SELECT e.id,
        edh.department_start_date,
        eth.team_id,
        p.position as position_name,
-       e.correspondence_address_id,
        es.salary,
        ca.street  as correspondence_street,
        ca.house   as correspondence_house,
-       ca.city_id as correspondence_city_id
+       ca.city_id as correspondence_city_id,
+       ca.postal_code as correspondence_postal_code,
+       a.street  as street,
+       a.house   as house,
+       a.city_id as city_id,
+       a.postal_code as postal_code
 FROM employees e
          JOIN employee_departments_history edh
               ON e.id = edh.employee_id
                   AND edh.end_date IS NULL
-         JOIN employee_teams_history eth on e.id = eth.employee_id
+         LEFT JOIN employee_teams_history eth on e.id = eth.employee_id
          JOIN employee_positions_history eph on e.id = eph.employee_id and eph.end_date IS NULL
          JOIN positions p on eph.position = p.position
          JOIN employee_salary es on e.id = es.employee_id AND es.end_date IS NULL
-         JOIN addresses ca on e.correspondence_address_id = ca.id;
+         JOIN addresses ca on e.correspondence_address_id = ca.id
+         LEFT JOIN addresses a ON e.address_id = a.id;
 
 
 CREATE VIEW departments_view AS
@@ -517,13 +522,14 @@ CREATE OR REPLACE FUNCTION add_employee(
     _birth_date DATE,
     _position VARCHAR(30),
     _team_id INTEGER,
+    _salary INTEGER,
     _address_id INTEGER DEFAULT NULL,
     _position_start_date DATE DEFAULT CURRENT_DATE,
     _team_start_date DATE DEFAULT CURRENT_DATE,
     _department_name VARCHAR(50) DEFAULT NULL,
     _department_start_date DATE DEFAULT NULL,
     _department_assign_start DATE DEFAULT CURRENT_DATE
-) RETURNS VOID AS
+) RETURNS INTEGER AS
 $$
 DECLARE
     _employee_id INTEGER;
@@ -539,6 +545,12 @@ BEGIN
     INSERT INTO employee_positions_history (employee_id, position, start_date)
     VALUES (_employee_id, _position, _position_start_date);
 
+    IF _salary IS NOT NULL THEN
+        INSERT INTO employee_salary (employee_id, salary, start_date)
+        VALUES (_employee_id, _salary, CURRENT_DATE);
+    END IF;
+
+
     IF _team_id IS NOT NULL THEN
         INSERT INTO employee_teams_history (employee_id, team_id, join_ts)
         VALUES (_employee_id, _team_id, _team_start_date);
@@ -552,6 +564,7 @@ BEGIN
         INSERT INTO employee_departments_history (employee_id, department_name, department_start_date, start_date)
         VALUES (_employee_id, _department_name, _department_start_date, _department_assign_start);
     END IF;
+    RETURN _employee_id;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -841,8 +854,22 @@ CREATE OR REPLACE FUNCTION employees_view_insert_tr()
     RETURNS trigger
     LANGUAGE plpgsql AS
 $$
+DECLARE
+        v_correspondence_address_id INT;
 BEGIN
-    PERFORM add_employee(
+    SELECT id INTO v_correspondence_address_id
+    FROM addresses
+    WHERE city_id = NEW.correspondence_city_id AND
+          street = NEW.correspondence_street AND
+          house = NEW.correspondence_house AND
+          postal_code = NEW.correspondence_postal_code;
+
+    IF v_correspondence_address_id IS NULL THEN
+        INSERT INTO addresses (city_id, street, house, postal_code)
+        VALUES (NEW.correspondence_city_id, NEW.correspondence_street, NEW.correspondence_house, NEW.correspondence_postal_code)
+        RETURNING id INTO v_correspondence_address_id;
+    END IF;
+    NEW.id := add_employee(
             NEW.first_name,
             NEW.last_name,
             NEW.second_name,
@@ -850,13 +877,14 @@ BEGIN
             NEW.phone,
             NEW.email,
             NEW.passport,
-            NULL,
-            NEW.correspondence_address_id,
+            NEW.pesel,
+            v_correspondence_address_id,
             NEW.birth_date,
             NEW.position_name,
-            NEW.team_id
+            NEW.team_id,
+            NEW.salary
             );
-    RETURN NULL;
+    RETURN NEW;
 END;
 $$;
 
