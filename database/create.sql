@@ -31,6 +31,9 @@ CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
                                                        house,
                                                        city_id
     );
+CREATE INDEX idx_addresses_postal_street ON addresses(postal_code, street);
+CREATE INDEX idx_regions_country_and_name ON regions(country_name, name);
+CREATE INDEX idx_cities_region_and_name ON cities(region_id, name);
 
 CREATE TABLE employees
 (
@@ -155,7 +158,7 @@ CREATE TABLE employee_schedule
     CHECK ( end_date IS NULL OR start_date <= end_date )
 );
 
-CREATE TABLE employer_salary
+CREATE TABLE employee_salary
 (
     employee_id INTEGER NOT NULL REFERENCES employees (id),
     salary      INTEGER NOT NULL,
@@ -164,7 +167,7 @@ CREATE TABLE employer_salary
 
     PRIMARY KEY (employee_id, start_date),
     CHECK ( end_date IS NULL OR start_date <= end_date )
-)
+);
 
 CREATE TABLE schedule_exception_types
 (
