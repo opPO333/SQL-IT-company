@@ -119,4 +119,4 @@ drop function if exists check_unique_active_vacation() cascade;
 drop function if exists add_employee(varchar, varchar, varchar, char, varchar, varchar, varchar, char, integer, integer,
                                      date, varchar, integer, date, date, varchar, date, date) cascade;
 
-
+DROP TRIGGER IF EXISTS employee_insert ON employees_view;

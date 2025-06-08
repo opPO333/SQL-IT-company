@@ -13,7 +13,7 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 SECRET_KEY = "Pn611!zqM{cT#;Bfi5H8))(56Hw3}!"
 
 # The SQLAlchemy connection string.
-SQLALCHEMY_DATABASE_URI = "postgresql://art_ogo:Art78114@localhost:5432/sql_project"
+SQLALCHEMY_DATABASE_URI = "postgresql://admin:admin@localhost:5432/sql_project"
 # SQLALCHEMY_DATABASE_URI = 'mysql://myapp@localhost/myapp'
 # SQLALCHEMY_DATABASE_URI = 'postgresql://root:password@localhost/myapp'
 

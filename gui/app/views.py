@@ -1,7 +1,7 @@
 from flask import render_template
 from flask_appbuilder.models.sqla.interface import SQLAInterface
 from flask_appbuilder import ModelView, ModelRestApi
-from .models import Employee, Department, Team
+from .models import *
 import json
 import datetime
 
@@ -51,18 +51,58 @@ def page_not_found(e):
 class EmployeeView(ModelView):
     datamodel = SQLAInterface(Employee)
     list_columns = ['first_name', 'last_name']
+    show_columns = ['first_name', 'last_name', 'second_name', 'gender', 'phone', 'email',
+                    'pesel', 'passport', 'department', 'position', 'salary_per_hour', 'team']
+    edit_columns = ['first_name', 'last_name', 'second_name', 'gender', 'phone', 'email',
+                    'pesel', 'passport', 'department', 'position', 'salary_per_hour', 'team']
+    def _empty_to_none(self, item):
+        for col in self.edit_columns:
+            if getattr(item, col) == '':
+                setattr(item, col, None)
+
+    def pre_add(self, item):
+        self._empty_to_none(item)
+
+    def pre_update(self, item):
+        self._empty_to_none(item)
+
+class PositionView(ModelView):
+    datamodel = SQLAInterface(Position)
+    list_columns = ['position']
+
+
 class DepartmentView(ModelView):
     datamodel = SQLAInterface(Department)
     list_columns = ['name']
+    show_columns = ['name', 'head', 'start_date']
+    add_columns = ['name', 'head', 'start_date']
+    base_order = ('name', 'asc')
     related_views = [EmployeeView]
     show_template = "appbuilder/general/model/show_cascade.html"
+
+class EmployeeNameHistory(ModelView):
+    datamodel = SQLAInterface(EmployeeNameHistory)
+    base_permissions = ['can_list']
+    list_columns = ['employee', 'first_name', 'last_name', 'second_name', 'start_ts', 'end_ts']
 
 class TeamView(ModelView):
     datamodel = SQLAInterface(Team)
-    list_columns = ['id']
+    list_columns = ['id', 'project_title']
+    show_columns = [
+        'id', 'project_title'
+    ]
     related_views = [EmployeeView]
     show_template = "appbuilder/general/model/show_cascade.html"
 
+class EmployeeDepartmentHistoryView(ModelView):
+    datamodel = SQLAInterface(EmployeeDepartmentHistory)
+    base_permissions = ['can_list']
+    list_columns = ['employee', 'department_name', 'start_date', 'end_date']
+
+class HeadDepartmentHistoryView(ModelView):
+    datamodel = SQLAInterface(HeadDepartmentsHistory)
+    base_permissions = ['can_list']
+    list_columns = ['department', 'head', 'start_date', 'end_date']
 
 appbuilder.add_view(
     EmployeeView,
@@ -83,5 +123,28 @@ appbuilder.add_view(
     category="Company",
     category_icon='fa-building'
 )
+appbuilder.add_view(
+    EmployeeDepartmentHistoryView,
+    "Employee Department History"
+    , icon="fa-building",
+    category="History",
+    category_icon='fa-address-book'
+)
+
+appbuilder.add_view(
+    PositionView,
+    "Positions"
+    , icon="fa-users",
+    category="Company",)
+appbuilder.add_view(EmployeeNameHistory,
+                    "Employee Name History",
+                    icon="fa-users",
+                    category="History",
+                    category_icon='fa-address-book')
+
+appbuilder.add_view(HeadDepartmentHistoryView,
+                    "Head Department History",
+                    icon="fa-building",
+                    category="History" )
 
 db.create_all()
