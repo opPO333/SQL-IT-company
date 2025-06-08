@@ -68,7 +68,9 @@ class EmployeeView(ModelView):
 
 class PositionView(ModelView):
     datamodel = SQLAInterface(Position)
-    list_columns = ['position']
+    related_views = [EmployeeView]
+    list_columns = ['position'];
+    show_template = "appbuilder/general/model/show_cascade.html"
 
 
 class DepartmentView(ModelView):

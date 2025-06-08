@@ -62,23 +62,23 @@ class AllEmployees(db.Model):
     def __repr__(self):
         return f"{self.first_name} {self.last_name}"
 
-class Position(db.Model):
-    __table__ = positions_table
-    def __repr__(self):
-        return f"{self.position}"
-
 class Employee(db.Model):
     __table__ = employee_table
-    position= relationship(
-        Position,
-        viewonly=True,
-        primaryjoin=and_(
-            employee_table.c.position_name == foreign(positions_table.c.position),
-        ),
-        backref='employee_position'
-    )
     def __repr__(self):
         return f"{self.first_name} {self.last_name}"
+
+class Position(db.Model):
+    __table__ = positions_table
+    employees = relationship(
+        Employee,
+        viewonly=True,
+        primaryjoin=and_(
+            positions_table.c.position == foreign(employee_table.c.position_name),
+        ),
+        backref='position'
+    )
+    def __repr__(self):
+        return f"{self.position}"
 
 
 class Department(db.Model):

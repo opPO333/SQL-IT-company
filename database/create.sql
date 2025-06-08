@@ -262,28 +262,6 @@ CREATE TABLE employee_equipment_history
     CHECK (end_date IS NULL OR start_date <= end_date)
 );
 
-CREATE OR REPLACE VIEW employees_view AS
-SELECT
-    e.id,
-    e.first_name,
-    e.last_name,
-    e.pesel,
-    edh.department_name,
-    edh.department_start_date,
-    eth.team_id
-FROM employees e
-         JOIN employee_departments_history edh
-              ON e.id = edh.employee_id
-                  AND edh.end_date IS NULL
-         JOIN employee_teams_history eth on e.id = eth.employee_id;
-
-CREATE OR REPLACE VIEW departments_view AS
-SELECT d.*, concat(e.first_name, ' ', e.last_name) as head_name FROM departments d
-                                                                         LEFT JOIN head_departments_history hdh
-                                                                                   ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date
-                                                                         LEFT JOIN employees e on hdh.head_id = e.id
-WHERE d.end_date IS NULL;
-
 CREATE OR REPLACE VIEW teams_view AS
 SELECT t.id, t.start_date, p.title as project_title
 FROM teams t LEFT JOIN projects p on p.title = t.project_title
@@ -426,11 +404,6 @@ LEFT JOIN head_departments_history hdh
     ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date
 LEFT JOIN employees e on hdh.head_id = e.id
 WHERE d.end_date IS NULL;
-
-CREATE VIEW teams_view AS
-    SELECT t.id, t.start_date, p.title as project_title
-    FROM teams t LEFT JOIN projects p on t.project_title = p.title
-    WHERE t.end_date IS NULL;
 
 
 CREATE OR REPLACE FUNCTION employee_name_change() RETURNS TRIGGER AS
@@ -873,7 +846,7 @@ BEGIN
           NULL,
           NEW.correspondence_address_id,
           NEW.birth_date,
-          NEW.position,
+          NEW.position_name,
           NEW.team_id
 
   );
@@ -953,7 +926,7 @@ BEGIN
   END IF;
 
   -- 5. Position‐change history
-  IF NEW.position IS NOT NULL AND NEW.position <> OLD.position THEN
+  IF NEW.position_name IS NOT NULL AND NEW.position_name <> OLD.position_name THEN
     UPDATE employee_positions_history
        SET end_date = now_ts
      WHERE employee_id = OLD.id
@@ -962,7 +935,7 @@ BEGIN
     INSERT INTO employee_positions_history(
       employee_id, position, start_date
     ) VALUES (
-      OLD.id, NEW.position, now_ts
+      OLD.id, NEW.position_name, now_ts
     );
   END IF;
 
