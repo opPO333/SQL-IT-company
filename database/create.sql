@@ -139,10 +139,7 @@ CREATE TABLE employee_teams_history
 
 CREATE TABLE positions
 (
-    position        VARCHAR(30) PRIMARY KEY,
-    salary_per_hour NUMERIC(10, 2) NOT NULL,
-
-    CHECK (salary_per_hour >= 0)
+    position VARCHAR(30) PRIMARY KEY
 );
 
 CREATE TABLE employee_schedule
@@ -151,9 +148,23 @@ CREATE TABLE employee_schedule
     weekday     INTEGER                                              NOT NULL CHECK (weekday BETWEEN 1 AND 7),
     start_time  TIME                                                 NOT NULL,
     end_time    TIME                                                 NOT NULL,
+    start_date  DATE                                                 NOT NULL,
+    end_date    DATE,
 
-    PRIMARY KEY (employee_id, weekday, start_time)
+    PRIMARY KEY (employee_id, weekday, start_date, start_time),
+    CHECK ( end_date IS NULL OR start_date <= end_date )
 );
+
+CREATE TABLE employer_salary
+(
+    employee_id INTEGER NOT NULL REFERENCES employees (id),
+    salary      INTEGER NOT NULL,
+    start_date  DATE    NOT NULL,
+    end_date    DATE,
+
+    PRIMARY KEY (employee_id, start_date),
+    CHECK ( end_date IS NULL OR start_date <= end_date )
+)
 
 CREATE TABLE schedule_exception_types
 (
@@ -452,7 +463,8 @@ BEGIN
     IF NEW.end_date IS NULL THEN
         IF EXISTS (SELECT 1
                    FROM employee_positions_history eph
-                   WHERE eph.employee_id = NEW.employee_id AND eph.end_date IS NULL) THEN
+                   WHERE eph.employee_id = NEW.employee_id
+                     AND eph.end_date IS NULL) THEN
             RAISE EXCEPTION 'Employee already has an active position';
         END IF;
     END IF;
@@ -484,7 +496,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE CONSTRAINT TRIGGER trg_check_employee_position
-    AFTER INSERT ON employees
+    AFTER INSERT
+    ON employees
     DEFERRABLE INITIALLY DEFERRED
     FOR EACH ROW
 EXECUTE FUNCTION check_employee_inserted_correctly();
@@ -574,7 +587,8 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE TRIGGER departments_consistency_trigger
-    BEFORE INSERT OR UPDATE ON departments
+    BEFORE INSERT OR UPDATE
+    ON departments
     FOR EACH ROW
 EXECUTE FUNCTION check_departments_consistency();
 
@@ -709,7 +723,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_check_unique_active_position
-    BEFORE INSERT OR UPDATE ON employee_positions_history
+    BEFORE INSERT OR UPDATE
+    ON employee_positions_history
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_position();
 
@@ -749,7 +764,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_check_unique_active_department
-    BEFORE INSERT OR UPDATE ON employee_departments_history
+    BEFORE INSERT OR UPDATE
+    ON employee_departments_history
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_department();
 

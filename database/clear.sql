@@ -1,40 +1,3 @@
-DROP TYPE IF EXISTS equipment_type CASCADE;
-DROP TYPE IF EXISTS equipment_status CASCADE;
-
-DROP VIEW IF EXISTS employees_view;
-
-DROP TRIGGER IF EXISTS pesel_check ON employees CASCADE;
-DROP FUNCTION IF EXISTS pesel_check CASCADE;
-
-DROP TABLE IF EXISTS
-    schedule_exception_types,
-    employee_schedule,
-    employee_departments_history,
-    employee_positions_history,
-    employee_teams_history,
-    departments,
-    addresses,
-    cities,
-    regions,
-    countries,
-    schedule_exceptions,
-    position_schedules,
-    employee_days,
-    vacations,
-    tasks,
-    teams,
-    projects,
-    employees,
-    positions,
-    employee_name_history,
-    head_departments_history,
-    equipment,
-    equipment_status_history,
-    employee_equipment_history
-CASCADE;
-
-
-
 drop table if exists employee_name_history cascade;
 
 drop table if exists head_departments_history cascade;
@@ -46,6 +9,8 @@ drop table if exists departments cascade;
 drop table if exists employee_teams_history cascade;
 
 drop table if exists employee_schedule cascade;
+
+drop table if exists employer_salary cascade;
 
 drop table if exists schedule_exceptions cascade;
 
@@ -100,7 +65,7 @@ drop function if exists check_single_active_position() cascade;
 drop function if exists check_employee_inserted_correctly() cascade;
 
 drop function if exists add_employee(varchar, varchar, varchar, char, varchar, varchar, varchar, char, integer, integer,
-                                     date, varchar, date, varchar, date, varchar, date, date) cascade;
+                                     date, varchar, integer, date, date, varchar, date, date) cascade;
 
 drop function if exists check_departments_consistency() cascade;
 
@@ -115,8 +80,4 @@ drop function if exists check_unique_active_department() cascade;
 drop function if exists check_unique_active_team() cascade;
 
 drop function if exists check_unique_active_vacation() cascade;
-
-drop function if exists add_employee(varchar, varchar, varchar, char, varchar, varchar, varchar, char, integer, integer,
-                                     date, varchar, integer, date, date, varchar, date, date) cascade;
-
 
