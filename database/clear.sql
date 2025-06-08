@@ -56,6 +56,10 @@ drop view if exists departments_view cascade;
 
 drop view if exists employee_departments_history_view cascade;
 
+drop function if exists prevent_deleting_active_position() cascade;
+
+drop function if exists prevent_deleting_active_project() cascade;
+
 drop function if exists pesel_check() cascade;
 
 drop function if exists employee_name_change() cascade;
@@ -80,6 +84,14 @@ drop function if exists check_unique_active_department() cascade;
 drop function if exists check_unique_active_team() cascade;
 
 drop function if exists check_unique_active_vacation() cascade;
+
+drop function if exists manage_equipment_status() cascade;
+
+drop function if exists check_vacation_self_approval() cascade;
+
+drop function if exists fire_employee(integer, date) cascade;
+
+drop function if exists get_employee_salary_history(integer) cascade;
 
 drop function if exists employees_view_insert_tr() cascade;
 
