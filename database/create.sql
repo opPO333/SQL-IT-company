@@ -399,14 +399,15 @@ execute function pesel_check();
     eth.team_id,
     p.position as position_name,
     e.correspondence_address_id,
-    concat(p.salary_per_hour::text, ' $') as salary_per_hour
+    es.salary
   FROM employees e
   JOIN employee_departments_history edh
     ON e.id = edh.employee_id
    AND edh.end_date IS NULL
   JOIN employee_teams_history eth on e.id = eth.employee_id
   JOIN employee_positions_history eph on e.id = eph.employee_id and eph.end_date IS NULL
-  JOIN positions p on eph.position = p.position;
+  JOIN positions p on eph.position = p.position
+  JOIN employer_salary es on e.id = es.employee_id AND es.end_date IS NULL;
 
 
 CREATE VIEW departments_view AS
