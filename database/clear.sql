@@ -65,7 +65,7 @@ drop function if exists check_and_close_position() cascade;
 drop function if exists check_employee_inserted_correctly() cascade;
 
 drop function if exists add_employee(varchar, varchar, varchar, char, varchar, varchar, varchar, char, integer, date,
-                                     varchar, integer, integer, date, date, varchar, date, date) cascade;
+                                     varchar, integer, integer, integer, date, date, varchar, date, date) cascade;
 
 drop function if exists check_departments_consistency() cascade;
 
