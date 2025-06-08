@@ -47,7 +47,7 @@ drop table if exists employee_teams_history cascade;
 
 drop table if exists employee_schedule cascade;
 
-drop table if exists employer_salary cascade;
+drop table if exists employee_salary cascade;
 
 drop table if exists employer_schedule cascade;
 

@@ -31,9 +31,9 @@ CREATE UNIQUE INDEX idx_addresses_unique ON addresses (
                                                        house,
                                                        city_id
     );
-CREATE INDEX idx_addresses_postal_street ON addresses(postal_code, street);
-CREATE INDEX idx_regions_country_and_name ON regions(country_name, name);
-CREATE INDEX idx_cities_region_and_name ON cities(region_id, name);
+CREATE INDEX idx_addresses_postal_street ON addresses (postal_code, street);
+CREATE INDEX idx_regions_country_and_name ON regions (country_name, name);
+CREATE INDEX idx_cities_region_and_name ON cities (region_id, name);
 
 CREATE TABLE employees
 (
@@ -56,7 +56,6 @@ CREATE TABLE employees
     CHECK (passport IS NOT NULL OR pesel IS NOT NULL)
 );
 
--- TODO: ADD trigger when update smth from this info we need add to this table row
 CREATE TABLE employee_name_history
 (
     employee_id INTEGER     NOT NULL REFERENCES employees (id) ON DELETE RESTRICT,
@@ -278,21 +277,9 @@ CREATE TABLE employee_equipment_history
 
 CREATE OR REPLACE VIEW teams_view AS
 SELECT t.id, t.start_date, p.title as project_title
-FROM teams t LEFT JOIN projects p on p.title = t.project_title
+FROM teams t
+         LEFT JOIN projects p on p.title = t.project_title
 WHERE t.end_date IS NULL;
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 ------------------------------------------------------------------------
@@ -385,43 +372,43 @@ execute function pesel_check();
 
 
 
-  CREATE VIEW employees_view AS
-  SELECT
-    e.id,
-    e.first_name,
-    e.last_name,
-    e.second_name,
-    e.gender,
-    e.phone,
-    e.pesel,
-    e.passport,
-    e.email,
-    e.birth_date,
-    edh.department_name,
-    edh.department_start_date,
-    eth.team_id,
-    p.position as position_name,
-    e.correspondence_address_id,
-    es.salary,
-    ca.street as correspondence_street,
-    ca.house as correspondence_house,
-    ca.city_id as correspondence_city_id
-  FROM employees e
-  JOIN employee_departments_history edh
-    ON e.id = edh.employee_id
-   AND edh.end_date IS NULL
-  JOIN employee_teams_history eth on e.id = eth.employee_id
-  JOIN employee_positions_history eph on e.id = eph.employee_id and eph.end_date IS NULL
-  JOIN positions p on eph.position = p.position
-  JOIN employer_salary es on e.id = es.employee_id AND es.end_date IS NULL
-  JOIN addresses ca on e.correspondence_address_id = ca.id;
+CREATE VIEW employees_view AS
+SELECT e.id,
+       e.first_name,
+       e.last_name,
+       e.second_name,
+       e.gender,
+       e.phone,
+       e.pesel,
+       e.passport,
+       e.email,
+       e.birth_date,
+       edh.department_name,
+       edh.department_start_date,
+       eth.team_id,
+       p.position as position_name,
+       e.correspondence_address_id,
+       es.salary,
+       ca.street  as correspondence_street,
+       ca.house   as correspondence_house,
+       ca.city_id as correspondence_city_id
+FROM employees e
+         JOIN employee_departments_history edh
+              ON e.id = edh.employee_id
+                  AND edh.end_date IS NULL
+         JOIN employee_teams_history eth on e.id = eth.employee_id
+         JOIN employee_positions_history eph on e.id = eph.employee_id and eph.end_date IS NULL
+         JOIN positions p on eph.position = p.position
+         JOIN employee_salary es on e.id = es.employee_id AND es.end_date IS NULL
+         JOIN addresses ca on e.correspondence_address_id = ca.id;
 
 
 CREATE VIEW departments_view AS
-SELECT d.*, e.id as head_id FROM departments d
-LEFT JOIN head_departments_history hdh
-    ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date
-LEFT JOIN employees e on hdh.head_id = e.id
+SELECT d.*, e.id as head_id
+FROM departments d
+         LEFT JOIN head_departments_history hdh
+                   ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date
+         LEFT JOIN employees e on hdh.head_id = e.id
 WHERE d.end_date IS NULL;
 
 
@@ -458,9 +445,7 @@ CREATE TRIGGER employee_name_change
 EXECUTE FUNCTION employee_name_change();
 
 
-
 ------------------------------------------------------------------------
-
 
 
 CREATE OR REPLACE FUNCTION check_and_close_position() RETURNS TRIGGER AS
@@ -469,6 +454,7 @@ BEGIN
     IF EXISTS (SELECT 1
                FROM employee_positions_history eph
                WHERE eph.employee_id = NEW.employee_id
+                 AND (TG_OP != 'UPDATE' OR eph.start_date != OLD.start_date)
                  AND GREATEST(NEW.start_date, eph.start_date) < LEAST(
                        COALESCE(NEW.end_date, DATE '9999-12-31'),
                        COALESCE(eph.end_date, CURRENT_DATE)
@@ -512,7 +498,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE CONSTRAINT TRIGGER trg_check_employee_position
-    AFTER INSERT ON employees
+    AFTER INSERT
+    ON employees
     DEFERRABLE INITIALLY DEFERRED
     FOR EACH ROW
 EXECUTE FUNCTION check_employee_inserted_correctly();
@@ -536,7 +523,8 @@ CREATE OR REPLACE FUNCTION add_employee(
     _department_name VARCHAR(50) DEFAULT NULL,
     _department_start_date DATE DEFAULT NULL,
     _department_assign_start DATE DEFAULT CURRENT_DATE
-) RETURNS VOID AS $$
+) RETURNS VOID AS
+$$
 DECLARE
     _employee_id INTEGER;
 BEGIN
@@ -601,14 +589,13 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE TRIGGER departments_consistency_trigger
-    BEFORE INSERT OR UPDATE ON departments
+    BEFORE INSERT OR UPDATE
+    ON departments
     FOR EACH ROW
 EXECUTE FUNCTION check_departments_consistency();
 
 
-
 -----------------------------------------------
-
 
 
 CREATE OR REPLACE FUNCTION create_full_address(
@@ -674,7 +661,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
 ----------------------------------------------------------
 
 
@@ -709,10 +695,10 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE TRIGGER trg_check_unique_active_head
-    BEFORE INSERT OR UPDATE ON head_departments_history
+    BEFORE INSERT OR UPDATE
+    ON head_departments_history
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_head();
-
 
 
 --------------------------------------------------------------------
@@ -739,7 +725,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_check_unique_active_position
-    BEFORE INSERT OR UPDATE ON employee_positions_history
+    BEFORE INSERT OR UPDATE
+    ON employee_positions_history
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_position();
 
@@ -779,7 +766,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_check_unique_active_department
-    BEFORE INSERT OR UPDATE ON employee_departments_history
+    BEFORE INSERT OR UPDATE
+    ON employee_departments_history
     FOR EACH ROW
 EXECUTE FUNCTION check_unique_active_department();
 
@@ -850,143 +838,133 @@ EXECUTE FUNCTION check_unique_active_vacation();
 
 -- 1) A trigger‐wrapper that sees NEW, calls your routine, then returns NULL
 CREATE OR REPLACE FUNCTION employees_view_insert_tr()
-  RETURNS trigger
-  LANGUAGE plpgsql AS
+    RETURNS trigger
+    LANGUAGE plpgsql AS
 $$
 BEGIN
-  PERFORM add_employee(
-      NEW.first_name,
-      NEW.last_name,
-          NEW.second_name,
-          NEW.gender,
-          NEW.phone,
-          NEW.email,
-          NEW.passport,
-          NULL,
-          NEW.correspondence_address_id,
-          NEW.birth_date,
-          NEW.position_name,
-          NEW.team_id
-
-  );
-  RETURN NULL;
+    PERFORM add_employee(
+            NEW.first_name,
+            NEW.last_name,
+            NEW.second_name,
+            NEW.gender,
+            NEW.phone,
+            NEW.email,
+            NEW.passport,
+            NULL,
+            NEW.correspondence_address_id,
+            NEW.birth_date,
+            NEW.position_name,
+            NEW.team_id
+            );
+    RETURN NULL;
 END;
 $$;
 
 CREATE TRIGGER employee_insert
-  INSTEAD OF INSERT
-  ON employees_view
-  FOR EACH ROW
-  EXECUTE FUNCTION employees_view_insert_tr();
+    INSTEAD OF INSERT
+    ON employees_view
+    FOR EACH ROW
+EXECUTE FUNCTION employees_view_insert_tr();
 
 -----------------------------------------------------
 
 CREATE OR REPLACE FUNCTION trg_employees_view_update()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+AS
+$$
 DECLARE
-  now_ts TIMESTAMP := clock_timestamp();
+    now_ts TIMESTAMP := clock_timestamp();
 BEGIN
-  UPDATE employees
-     SET first_name               = COALESCE(NEW.first_name,               OLD.first_name)
-       , second_name              = COALESCE(NEW.second_name,              OLD.second_name)
-       , last_name                = COALESCE(NEW.last_name,                OLD.last_name)
-       , gender                   = COALESCE(NEW.gender,                   OLD.gender)
-       , phone                    = COALESCE(NEW.phone,                    OLD.phone)
-       , email                    = COALESCE(NEW.email,                    OLD.email)
-       , pesel                    = COALESCE(NEW.pesel,                    OLD.pesel)
-       , passport                 = COALESCE(NEW.passport,                 OLD.passport)
-       , birth_date               = COALESCE(NEW.birth_date,               OLD.birth_date)
-       , correspondence_address_id = COALESCE(NEW.correspondence_address_id, OLD.correspondence_address_id)
-  WHERE id = OLD.id;
+    UPDATE employees
+    SET first_name                = COALESCE(NEW.first_name, OLD.first_name)
+      , second_name               = COALESCE(NEW.second_name, OLD.second_name)
+      , last_name                 = COALESCE(NEW.last_name, OLD.last_name)
+      , gender                    = COALESCE(NEW.gender, OLD.gender)
+      , phone                     = COALESCE(NEW.phone, OLD.phone)
+      , email                     = COALESCE(NEW.email, OLD.email)
+      , pesel                     = COALESCE(NEW.pesel, OLD.pesel)
+      , passport                  = COALESCE(NEW.passport, OLD.passport)
+      , birth_date                = COALESCE(NEW.birth_date, OLD.birth_date)
+      , correspondence_address_id = COALESCE(NEW.correspondence_address_id, OLD.correspondence_address_id)
+    WHERE id = OLD.id;
 
-  IF (NEW.first_name IS NOT NULL AND NEW.first_name <> OLD.first_name)
-   OR (NEW.second_name IS NOT NULL AND NEW.second_name <> OLD.second_name)
-   OR (NEW.last_name IS NOT NULL AND NEW.last_name <> OLD.last_name)
-  THEN
-    INSERT INTO employee_name_history(
-      employee_id, first_name, second_name, last_name, start_ts
-    ) VALUES (
-      OLD.id,
-      NEW.first_name, NEW.second_name, NEW.last_name,
-      now_ts
-    );
-  END IF;
+    IF (NEW.first_name IS NOT NULL AND NEW.first_name <> OLD.first_name)
+        OR (NEW.second_name IS NOT NULL AND NEW.second_name <> OLD.second_name)
+        OR (NEW.last_name IS NOT NULL AND NEW.last_name <> OLD.last_name)
+    THEN
+        INSERT INTO employee_name_history(employee_id, first_name, second_name, last_name, start_ts)
+        VALUES (OLD.id,
+                NEW.first_name, NEW.second_name, NEW.last_name,
+                now_ts);
+    END IF;
 
-  -- 3. Department‐change history
-  IF (NEW.department_name IS NOT NULL AND NEW.department_name <> OLD.department_name)
-   OR (NEW.department_start_date IS NOT NULL AND NEW.department_start_date <> OLD.department_start_date)
-  THEN
-    UPDATE employee_departments_history
-       SET end_date = now_ts
-     WHERE employee_id = OLD.id
-       AND end_date IS NULL;
+    -- 3. Department‐change history
+    IF (NEW.department_name IS NOT NULL AND NEW.department_name <> OLD.department_name)
+        OR (NEW.department_start_date IS NOT NULL AND NEW.department_start_date <> OLD.department_start_date)
+    THEN
+        UPDATE employee_departments_history
+        SET end_date = now_ts
+        WHERE employee_id = OLD.id
+          AND end_date IS NULL;
 
-    INSERT INTO employee_departments_history(
-      employee_id, department_name, department_start_date, start_date
-    ) VALUES (
-      OLD.id, NEW.department_name, NEW.department_start_date, now_ts
-    );
-  END IF;
+        INSERT INTO employee_departments_history(employee_id, department_name, department_start_date, start_date)
+        VALUES (OLD.id, NEW.department_name, NEW.department_start_date, now_ts);
+    END IF;
 
-  -- 4. Team‐change history
-  IF NEW.team_id IS NOT NULL AND NEW.team_id <> OLD.team_id THEN
-    UPDATE employee_teams_history
-       SET leave_ts = now_ts
-     WHERE employee_id = OLD.id
-       AND leave_ts IS NULL;
+    -- 4. Team‐change history
+    IF NEW.team_id IS NOT NULL AND NEW.team_id <> OLD.team_id THEN
+        UPDATE employee_teams_history
+        SET leave_ts = now_ts
+        WHERE employee_id = OLD.id
+          AND leave_ts IS NULL;
 
-    INSERT INTO employee_teams_history(
-      employee_id, team_id, join_ts
-    ) VALUES (
-      OLD.id, NEW.team_id, now_ts
-    );
-  END IF;
+        INSERT INTO employee_teams_history(employee_id, team_id, join_ts)
+        VALUES (OLD.id, NEW.team_id, now_ts);
+    END IF;
 
-  -- 5. Position‐change history
-  IF NEW.position_name IS NOT NULL AND NEW.position_name <> OLD.position_name THEN
-    UPDATE employee_positions_history
-       SET end_date = now_ts
-     WHERE employee_id = OLD.id
-       AND end_date IS NULL;
+    -- 5. Position‐change history
+    IF NEW.position_name IS NOT NULL AND NEW.position_name <> OLD.position_name THEN
+        UPDATE employee_positions_history
+        SET end_date = now_ts
+        WHERE employee_id = OLD.id
+          AND end_date IS NULL;
 
-    INSERT INTO employee_positions_history(
-      employee_id, position, start_date
-    ) VALUES (
-      OLD.id, NEW.position_name, now_ts
-    );
-  END IF;
-  -- 6. Salary history
-  IF NEW.salary IS NOT NULL AND NEW.salary <> OLD.salary THEN
-      UPDATE employer_salary
+        INSERT INTO employee_positions_history(employee_id, position, start_date)
+        VALUES (OLD.id, NEW.position_name, now_ts);
+    END IF;
+    -- 6. Salary history
+    IF NEW.salary IS NOT NULL AND NEW.salary <> OLD.salary THEN
+        UPDATE employee_salary
         SET end_date = CURRENT_DATE
         WHERE employee_id = OLD.id
-      AND end_date IS NULL;
+          AND end_date IS NULL;
 
-      INSERT INTO employer_salary(
-        employee_id, salary, start_date, end_date
-      ) VALUES (
-        OLD.id, NEW.salary, CURRENT_DATE, NULL
-     );
-  end if;
-  RETURN NEW;
+        INSERT INTO employee_salary(employee_id, salary, start_date, end_date)
+        VALUES (OLD.id, NEW.salary, CURRENT_DATE, NULL);
+    end if;
+    RETURN NEW;
 END;
 $$;
 
 CREATE TRIGGER trg_employees_view_update
-INSTEAD OF UPDATE
-ON employees_view
-FOR EACH ROW
+    INSTEAD OF UPDATE
+    ON employees_view
+    FOR EACH ROW
 EXECUTE FUNCTION trg_employees_view_update();
 
 CREATE VIEW employee_departments_history_view AS
-    SELECT edh.employee_id, concat(e.first_name, ' ', e.last_name) as name, edh.department_name, edh.start_date, edh.end_date
-    FROM employees e
-    JOIN employee_departments_history edh on e.id = edh.employee_id;
+SELECT edh.employee_id,
+       concat(e.first_name, ' ', e.last_name) as name,
+       edh.department_name,
+       edh.start_date,
+       edh.end_date
+FROM employees e
+         JOIN employee_departments_history edh on e.id = edh.employee_id;
 
 CREATE OR REPLACE FUNCTION manage_employees_view_delete()
-RETURNS TRIGGER AS $$
+    RETURNS TRIGGER AS
+$$
 BEGIN
     UPDATE employee_departments_history
     SET end_date = CURRENT_DATE
@@ -1003,16 +981,18 @@ BEGIN
     WHERE employee_id = OLD.id
       AND leave_ts IS NULL;
 
-    UPDATE employer_salary
-        SET end_date = CURRENT_DATE
-            WHERE employee_id = OLD.id
-        AND end_date IS NULL;
+    UPDATE employee_salary
+    SET end_date = CURRENT_DATE
+    WHERE employee_id = OLD.id
+      AND end_date IS NULL;
 
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER instead_of_delete_on_employees_view
-INSTEAD OF DELETE ON employees_view
-FOR EACH ROW
+    INSTEAD OF DELETE
+    ON employees_view
+    FOR EACH ROW
 EXECUTE FUNCTION manage_employees_view_delete();
+
