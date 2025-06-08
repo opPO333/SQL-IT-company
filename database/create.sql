@@ -161,8 +161,8 @@ CREATE TABLE employee_salary
 (
     employee_id INTEGER NOT NULL REFERENCES employees (id),
     salary      INTEGER NOT NULL,
-    start_date  DATE    NOT NULL,
-    end_date    DATE,
+    start_date  timestamp    NOT NULL,
+    end_date    timestamp,
 
     PRIMARY KEY (employee_id, start_date),
     CHECK ( end_date IS NULL OR start_date <= end_date )
@@ -397,10 +397,10 @@ SELECT e.id,
        a.city_id as city_id,
        a.postal_code as postal_code
 FROM employees e
-         JOIN employee_departments_history edh
+        LEFT JOIN employee_departments_history edh
               ON e.id = edh.employee_id
                   AND edh.end_date IS NULL
-         LEFT JOIN employee_teams_history eth on e.id = eth.employee_id
+         LEFT JOIN employee_teams_history eth on e.id = eth.employee_id AND eth.leave_ts IS NULL
          JOIN employee_positions_history eph on e.id = eph.employee_id and eph.end_date IS NULL
          JOIN positions p on eph.position = p.position
          JOIN employee_salary es on e.id = es.employee_id AND es.end_date IS NULL
@@ -412,7 +412,7 @@ CREATE VIEW departments_view AS
 SELECT d.*, e.id as head_id
 FROM departments d
          LEFT JOIN head_departments_history hdh
-                   ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date
+                   ON d.name = hdh.department_name AND d.start_date = hdh.department_start_date AND hdh.end_date IS NULL
          LEFT JOIN employees e on hdh.head_id = e.id
 WHERE d.end_date IS NULL;
 
@@ -524,10 +524,10 @@ CREATE OR REPLACE FUNCTION add_employee(
     _team_id INTEGER,
     _salary INTEGER,
     _address_id INTEGER DEFAULT NULL,
-    _position_start_date DATE DEFAULT CURRENT_DATE,
-    _team_start_date DATE DEFAULT CURRENT_DATE,
     _department_name VARCHAR(50) DEFAULT NULL,
     _department_start_date DATE DEFAULT NULL,
+    _position_start_date DATE DEFAULT CURRENT_DATE,
+    _team_start_date DATE DEFAULT CURRENT_DATE,
     _department_assign_start DATE DEFAULT CURRENT_DATE
 ) RETURNS INTEGER AS
 $$
@@ -547,7 +547,7 @@ BEGIN
 
     IF _salary IS NOT NULL THEN
         INSERT INTO employee_salary (employee_id, salary, start_date)
-        VALUES (_employee_id, _salary, CURRENT_DATE);
+        VALUES (_employee_id, _salary, CURRENT_TIMESTAMP);
     END IF;
 
 
@@ -881,7 +881,8 @@ CREATE OR REPLACE FUNCTION employees_view_insert_tr()
     LANGUAGE plpgsql AS
 $$
 DECLARE
-        v_correspondence_address_id INT;
+    v_correspondence_address_id INT;
+    v_address_id INT;
 BEGIN
     SELECT id INTO v_correspondence_address_id
     FROM addresses
@@ -890,11 +891,24 @@ BEGIN
           house = NEW.correspondence_house AND
           postal_code = NEW.correspondence_postal_code;
 
+    SELECT id INTO v_address_id
+    FROM addresses
+        WHERE city_id = NEW.city_id AND
+              street = NEW.street AND
+              house = NEW.house AND
+              postal_code = NEW.postal_code;
+
+
     IF v_correspondence_address_id IS NULL THEN
         INSERT INTO addresses (city_id, street, house, postal_code)
         VALUES (NEW.correspondence_city_id, NEW.correspondence_street, NEW.correspondence_house, NEW.correspondence_postal_code)
         RETURNING id INTO v_correspondence_address_id;
     END IF;
+
+    IF v_address_id IS NULl AND NEW.city_id IS NOT NULL AND NEW.house IS NOT NULL AND NEW.postal_code IS NOT NULL THEN
+        INSERT INTO addresses (city_id, street, house, postal_code)
+        VALUES (NEW.city_id, NEW.street, NEW.house, NEW.postal_code);
+    end if;
     NEW.id := add_employee(
             NEW.first_name,
             NEW.last_name,
@@ -908,7 +922,10 @@ BEGIN
             NEW.birth_date,
             NEW.position_name,
             NEW.team_id,
-            NEW.salary
+            NEW.salary,
+          v_address_id,
+              NEW.department_name,
+              NEW.department_start_date
             );
     RETURN NEW;
 END;
@@ -928,8 +945,36 @@ CREATE OR REPLACE FUNCTION trg_employees_view_update()
 AS
 $$
 DECLARE
+    v_correspondence_address_id INT;
+    v_address_id INT;
     now_ts TIMESTAMP := clock_timestamp();
 BEGIN
+        SELECT id INTO v_correspondence_address_id
+    FROM addresses
+    WHERE city_id = NEW.correspondence_city_id AND
+          street = NEW.correspondence_street AND
+          house = NEW.correspondence_house AND
+          postal_code = NEW.correspondence_postal_code;
+
+    SELECT id INTO v_address_id
+    FROM addresses
+        WHERE city_id = NEW.city_id AND
+              street = NEW.street AND
+              house = NEW.house AND
+              postal_code = NEW.postal_code;
+
+
+    IF v_correspondence_address_id IS NULL THEN
+        INSERT INTO addresses (city_id, street, house, postal_code)
+        VALUES (NEW.correspondence_city_id, NEW.correspondence_street, NEW.correspondence_house, NEW.correspondence_postal_code)
+        RETURNING id INTO v_correspondence_address_id;
+    END IF;
+
+    IF v_address_id IS NULl AND NEW.city_id IS NOT NULL AND NEW.house IS NOT NULL AND NEW.postal_code IS NOT NULL THEN
+        INSERT INTO addresses (city_id, street, house, postal_code)
+        VALUES (NEW.city_id, NEW.street, NEW.house, NEW.postal_code);
+    end if;
+
     UPDATE employees
     SET first_name                = COALESCE(NEW.first_name, OLD.first_name)
       , second_name               = COALESCE(NEW.second_name, OLD.second_name)
@@ -940,7 +985,8 @@ BEGIN
       , pesel                     = COALESCE(NEW.pesel, OLD.pesel)
       , passport                  = COALESCE(NEW.passport, OLD.passport)
       , birth_date                = COALESCE(NEW.birth_date, OLD.birth_date)
-      , correspondence_address_id = COALESCE(NEW.correspondence_address_id, OLD.correspondence_address_id)
+      , correspondence_address_id = v_correspondence_address_id
+      , address_id = v_address_id
     WHERE id = OLD.id;
 
     IF (NEW.first_name IS NOT NULL AND NEW.first_name <> OLD.first_name)
@@ -990,13 +1036,13 @@ BEGIN
     -- 6. Salary history
     IF NEW.salary IS NOT NULL AND NEW.salary <> OLD.salary THEN
         UPDATE employee_salary
-        SET end_date = CURRENT_DATE
+        SET end_date = now_ts -- Use now_ts for TIMESTAMP column
         WHERE employee_id = OLD.id
           AND end_date IS NULL;
 
         INSERT INTO employee_salary(employee_id, salary, start_date, end_date)
-        VALUES (OLD.id, NEW.salary, CURRENT_DATE, NULL);
-    end if;
+        VALUES (OLD.id, NEW.salary, now_ts, NULL); -- **CRITICAL CHANGE: Use now_ts here**
+    END IF;
     RETURN NEW;
 END;
 $$;
@@ -1036,7 +1082,7 @@ BEGIN
       AND leave_ts IS NULL;
 
     UPDATE employee_salary
-    SET end_date = CURRENT_DATE
+    SET end_date = CURRENT_TIMESTAMP
     WHERE employee_id = OLD.id
       AND end_date IS NULL;
 
@@ -1050,3 +1096,23 @@ CREATE TRIGGER instead_of_delete_on_employees_view
     FOR EACH ROW
 EXECUTE FUNCTION manage_employees_view_delete();
 
+CREATE or REPLACE function departments_view_insert() RETURNS TRIGGER AS $$
+DECLARE
+    cur_date DATE := CURRENT_DATE;
+BEGIN
+    INSERT INTO departments (name, start_date, end_date)
+    VALUES(NEW.name, cur_date, NULL);
+    IF NEW.head_id IS NOT NULL THEN
+        INSERT INTO head_departments_history(head_id, department_name, department_start_date, start_date)
+        VALUES (NEW.head_id, NEW.name, cur_date, cur_date);
+    end if;
+    NEW.start_date := cur_date;
+    NEW.end_date := NULL;
+    return NEW;
+end;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER departments_view_insert
+    instead of insert on departments_view
+        FOR EACH ROW EXECUTE FUNCTION departments_view_insert();

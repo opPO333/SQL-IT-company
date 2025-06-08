@@ -64,7 +64,7 @@ head_departments_history_table = Table('head_departments_history', metadata,
                                       autoload=True, autoload_with=db.engine )
 positions_table = Table('positions', metadata, autoload=True, autoload_with=db.engine)
 
-salary_history_table = Table('employer_salary', metadata, autoload=True, autoload_with=db.engine)
+salary_history_table = Table('employee_salary', metadata, autoload=True, autoload_with=db.engine)
 
 cities_table = Table('cities', metadata, autoload=True, autoload_with=db.engine)
 regions_table = Table('regions', metadata, autoload=True, autoload_with=db.engine)
