@@ -736,12 +736,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_check_unique_active_position
-    BEFORE INSERT OR UPDATE
-    ON employee_positions_history
-    FOR EACH ROW
-EXECUTE FUNCTION check_unique_active_position();
-
 
 --------------------------------------------------------------------
 
