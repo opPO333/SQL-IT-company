@@ -2,11 +2,13 @@ from flask_appbuilder import Model
 from sqlalchemy import Table, MetaData, Column, Integer, String, Date, and_, null
 from sqlalchemy.orm import relationship, foreign
 
+from flask_appbuilder.security.sqla.models import User
 from app import db
 from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import Integer, String, Numeric
 
-metadata = MetaData(bind=db.engine)
+
+metadata = db.metadata
 
 all_employees_table = Table(
     'employees', metadata,
@@ -223,5 +225,13 @@ class Team(db.Model):
         ),
         backref = 'team'
     )
+
     def __repr__(self):
         return f"{self.id} {self.project_title}"
+class MyUser(User):
+    __tablename__ = 'ab_user'
+    employee_id = Column(Integer, ForeignKey('employees.id'))
+    employee = relationship("AllEmployees", backref="user")
+    def is_admin(self):
+        return any(role.name == 'Admin' for role in self.roles)
+

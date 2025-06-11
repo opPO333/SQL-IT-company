@@ -19,6 +19,22 @@ SQLALCHEMY_DATABASE_URI = "postgresql://sqladmin:admin@localhost:5432/sql_projec
 
 # Flask-WTF flag for CSRF
 CSRF_ENABLED = True
+FAB_ROLES = {
+    "Employee": [
+        [".*", "can_list"],
+        [".*", "can_show"],
+        [".*", "menu_access"],
+        [".*", "can_get"],
+        [".*", "can_info"],
+        ['ResetMyPasswordView', 'can_this_form_post'],
+        ['ResetMyPasswordView', 'can_this_form_get'],
+        ['MyUserDBModelView', '.*'],
+        ['UserInfoEditView', '.*'],
+        ['EmployeeView', 'can_edit'],
+        ['EmployeeView', 'can_add']
+    ]
+
+}
 
 # ------------------------------
 # GLOBALS FOR APP Builder

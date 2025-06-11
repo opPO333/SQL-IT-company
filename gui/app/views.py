@@ -2,8 +2,11 @@ from flask import render_template
 from flask_appbuilder.models.sqla.interface import SQLAInterface
 from flask_appbuilder import ModelView, ModelRestApi
 from .models import *
+from flask import g, flash, redirect, url_for, abort
+from flask_migrate import Migrate
 import json
 import datetime
+
 
 from . import appbuilder, db
 
@@ -53,8 +56,6 @@ def page_not_found(e):
 from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
 from wtforms import StringField
 from wtforms.validators import DataRequired
-
-
 class EmployeeView(ModelView):
     datamodel = SQLAInterface(Employee)
     list_columns = ['first_name', 'last_name']
@@ -79,9 +80,13 @@ class EmployeeView(ModelView):
                 setattr(item, col, None)
 
     def pre_add(self, item):
+        if not(g.user.is_admin() or g.user.id == item.department.head_id):
+            abort(403)
         self._empty_to_none(item)
 
     def pre_update(self, item):
+        if not(g.user.is_admin() or g.user.employee.id == item.id  or g.user.id == item.department.head_id):
+            abort(403)
         self._empty_to_none(item)
 
 class PositionView(ModelView):
